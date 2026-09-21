@@ -47,6 +47,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 /* Table, form, and status primitives */
 .table-card { overflow: hidden; }
+.table-responsive { overflow-x: auto; }
+.table-responsive > .table { min-width: 680px; }
 .table { --bs-table-bg: transparent; --bs-table-border-color: var(--erp-border); margin-bottom: 0; }
 .table > :not(caption) > * > * { padding: 0.875rem 1rem; }
 .form-layout { max-width: 760px; padding: clamp(20px, 3vw, 32px); }

@@ -125,3 +125,10 @@ def test_assistant_is_a_surface_page_with_examples(app):
     assert 'data-page-type="assistant"' in body
     assert 'class="assistant-page surface-page' in body
     assert 'class="assistant-example chip' in body
+
+
+def test_narrow_tables_keep_columns_readable_with_horizontal_scrolling():
+    css = Path("static/css/style.css").read_text(encoding="utf-8")
+
+    assert ".table-responsive { overflow-x: auto; }" in css
+    assert ".table-responsive > .table { min-width: 680px; }" in css
