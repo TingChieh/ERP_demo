@@ -3,57 +3,23 @@
 {% block title %}Dashboard - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h1 class="h3 mb-1">Dashboard</h1>
-      <p class="text-muted mb-0">查看当前 ERP 演示数据概况</p>
-    </div>
+<section class="page-header" data-page-type="dashboard">
+  <div>
+    <p class="eyebrow">ERP WORKSPACE</p>
+    <h1>工作台</h1>
+    <p class="page-description">查看当前 ERP 演示数据概况。</p>
   </div>
-
-  <div class="row g-3">
-    <div class="col-md-4 col-xl-3">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">商品数量</div>
-        <div class="metric-value">{{ metrics.product_count }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4 col-xl-3">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">当前总库存</div>
-        <div class="metric-value">{{ metrics.total_stock }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4 col-xl-3">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">待入库采购订单</div>
-        <div class="metric-value">{{ metrics.pending_purchase_count }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4 col-xl-3">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">待出库销售订单</div>
-        <div class="metric-value">{{ metrics.pending_sales_count }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4 col-xl-4">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">未收应收账款</div>
-        <div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_receivable) }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4 col-xl-4">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">未付应付账款</div>
-        <div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_payable) }}</div>
-      </div></div>
-    </div>
-    <div class="col-md-4 col-xl-4">
-      <div class="card metric-card h-100"><div class="card-body">
-        <div class="text-muted">销售总额（已完成出库）</div>
-        <div class="metric-value">¥ {{ "%.2f"|format(metrics.sales_total) }}</div>
-      </div></div>
-    </div>
-  </div>
-</div>
+  <a class="btn btn-primary" href="{{ url_for('assistant.assistant_page') }}">问问 AI 助手</a>
+</section>
+<section class="metric-grid metric-grid-primary" aria-label="运营指标">
+  <article class="surface-card metric-card metric-card--coral"><div class="metric-label">商品数量</div><div class="metric-value">{{ metrics.product_count }}</div></article>
+  <article class="surface-card metric-card metric-card--mint"><div class="metric-label">当前总库存</div><div class="metric-value">{{ metrics.total_stock }}</div></article>
+  <article class="surface-card metric-card metric-card--lavender"><div class="metric-label">待入库采购订单</div><div class="metric-value">{{ metrics.pending_purchase_count }}</div></article>
+  <article class="surface-card metric-card metric-card--peach"><div class="metric-label">待出库销售订单</div><div class="metric-value">{{ metrics.pending_sales_count }}</div></article>
+</section>
+<section class="metric-grid metric-grid-finance" aria-label="财务与销售指标">
+  <article class="surface-card metric-card metric-card--peach"><div class="metric-label">未收应收账款</div><div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_receivable) }}</div></article>
+  <article class="surface-card metric-card metric-card--mint"><div class="metric-label">未付应付账款</div><div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_payable) }}</div></article>
+  <article class="surface-card metric-card metric-card--coral"><div class="metric-label">销售总额（已完成出库）</div><div class="metric-value">¥ {{ "%.2f"|format(metrics.sales_total) }}</div></article>
+</section>
 {% endblock %}

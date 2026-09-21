@@ -3,13 +3,19 @@
 {% block title %}{{ "编辑供应商" if supplier else "新增供应商" }} - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="mb-4"><h1 class="h3 mb-1">{{ "编辑供应商" if supplier else "新增供应商" }}</h1></div>
-{% if errors %}<div class="alert alert-danger"><ul class="mb-0">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
-<div class="card border-0 shadow-sm"><div class="card-body">
+<section class="page-header" data-page-type="master-form">
+  <div>
+    <p class="eyebrow">MASTER DATA</p>
+    <h1>{{ "编辑供应商" if supplier else "新增供应商" }}</h1>
+    <p class="page-description">维护供应商基础资料。</p>
+  </div>
+</section>
+{% if errors %}<div class="alert alert-danger form-errors" role="alert"><ul class="mb-0">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+<section class="surface-card form-layout">
   <form method="post">
     <div class="mb-3"><label class="form-label" for="name">供应商名称</label><input class="form-control" id="name" name="name" value="{{ form_data.name }}" required></div>
     <div class="mb-3"><label class="form-label" for="phone">电话</label><input class="form-control" id="phone" name="phone" value="{{ form_data.phone }}"></div>
     <div class="d-flex gap-2"><button class="btn btn-primary" type="submit">保存</button><a class="btn btn-outline-secondary" href="{{ url_for('suppliers.list_suppliers') }}">取消</a></div>
   </form>
-</div></div>
+</section>
 {% endblock %}

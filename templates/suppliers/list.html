@@ -3,11 +3,15 @@
 {% block title %}供应商管理 - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <div><h1 class="h3 mb-1">供应商管理</h1><p class="text-muted mb-0">维护供应商基础资料。</p></div>
+<section class="page-header" data-page-type="master-list">
+  <div>
+    <p class="eyebrow">MASTER DATA</p>
+    <h1>供应商管理</h1>
+    <p class="page-description">维护供应商基础资料。</p>
+  </div>
   <a class="btn btn-primary" href="{{ url_for('suppliers.new_supplier') }}">新增供应商</a>
-</div>
-<div class="card border-0 shadow-sm"><div class="table-responsive">
+</section>
+<section class="surface-card table-card"><div class="table-responsive">
   <table class="table table-hover mb-0 align-middle">
     <thead><tr><th>供应商名称</th><th>电话</th><th>操作</th></tr></thead>
     <tbody>
@@ -18,5 +22,5 @@
       {% endfor %}
     </tbody>
   </table>
-</div></div>
+</div></section>
 {% endblock %}

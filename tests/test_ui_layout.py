@@ -70,6 +70,25 @@ def test_dashboard_keeps_all_existing_metric_values(app):
     assert "销售总额（已完成出库）" in body
 
 
+@pytest.mark.parametrize(
+    "path,marker",
+    [
+        ("/", 'data-page-type="dashboard"'),
+        ("/products", 'data-page-type="master-list"'),
+        ("/products/new", 'data-page-type="master-form"'),
+        ("/customers", 'data-page-type="master-list"'),
+        ("/customers/new", 'data-page-type="master-form"'),
+        ("/suppliers", 'data-page-type="master-list"'),
+        ("/suppliers/new", 'data-page-type="master-form"'),
+    ],
+)
+def test_dashboard_and_master_data_pages_use_page_types(app, path, marker):
+    body = app.test_client().get(path).get_data(as_text=True)
+
+    assert marker in body
+    assert 'class="surface-card' in body
+
+
 def test_assistant_keeps_the_javascript_contract(app):
     response = app.test_client().get("/assistant")
     body = response.get_data(as_text=True)

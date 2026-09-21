@@ -3,15 +3,16 @@
 {% block title %}商品管理 - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<section class="page-header" data-page-type="master-list">
   <div>
-    <h1 class="h3 mb-1">商品管理</h1>
-    <p class="text-muted mb-0">维护商品主数据，库存只能通过库存业务变化。</p>
+    <p class="eyebrow">MASTER DATA</p>
+    <h1>商品管理</h1>
+    <p class="page-description">维护商品主数据，库存只能通过库存业务变化。</p>
   </div>
   <a class="btn btn-primary" href="{{ url_for('products.new_product') }}">新增商品</a>
-</div>
+</section>
 
-<div class="card border-0 shadow-sm">
+<section class="surface-card table-card">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle">
       <thead><tr>
@@ -33,5 +34,5 @@
       </tbody>
     </table>
   </div>
-</div>
+</section>
 {% endblock %}

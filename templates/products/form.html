@@ -3,43 +3,44 @@
 {% block title %}{{ "编辑商品" if product else "新增商品" }} - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <h1 class="h3 mb-1">{{ "编辑商品" if product else "新增商品" }}</h1>
-  <p class="text-muted mb-0">商品库存由入库和出库业务维护，本页面不能修改库存。</p>
-</div>
+<section class="page-header" data-page-type="master-form">
+  <div>
+    <p class="eyebrow">MASTER DATA</p>
+    <h1>{{ "编辑商品" if product else "新增商品" }}</h1>
+    <p class="page-description">商品库存由入库和出库业务维护，本页面不能修改库存。</p>
+  </div>
+</section>
 
 {% if errors %}
-<div class="alert alert-danger">
+<div class="alert alert-danger form-errors" role="alert">
   <ul class="mb-0">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 
-<div class="card border-0 shadow-sm">
-  <div class="card-body">
-    <form method="post">
+<section class="surface-card form-layout">
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label" for="name">商品名称</label>
+      <input class="form-control" id="name" name="name" value="{{ form_data.name }}" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="sku">SKU</label>
+      <input class="form-control" id="sku" name="sku" value="{{ form_data.sku }}" required>
+    </div>
+    <div class="form-grid form-grid--two-columns">
       <div class="mb-3">
-        <label class="form-label" for="name">商品名称</label>
-        <input class="form-control" id="name" name="name" value="{{ form_data.name }}" required>
+        <label class="form-label" for="purchase_price">默认采购价</label>
+        <input class="form-control" id="purchase_price" name="purchase_price" type="number" min="0" step="0.01" value="{{ form_data.purchase_price }}" required>
       </div>
       <div class="mb-3">
-        <label class="form-label" for="sku">SKU</label>
-        <input class="form-control" id="sku" name="sku" value="{{ form_data.sku }}" required>
+        <label class="form-label" for="sale_price">默认销售价</label>
+        <input class="form-control" id="sale_price" name="sale_price" type="number" min="0" step="0.01" value="{{ form_data.sale_price }}" required>
       </div>
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label" for="purchase_price">默认采购价</label>
-          <input class="form-control" id="purchase_price" name="purchase_price" type="number" min="0" step="0.01" value="{{ form_data.purchase_price }}" required>
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label" for="sale_price">默认销售价</label>
-          <input class="form-control" id="sale_price" name="sale_price" type="number" min="0" step="0.01" value="{{ form_data.sale_price }}" required>
-        </div>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" type="submit">保存</button>
-        <a class="btn btn-outline-secondary" href="{{ url_for('products.list_products') }}">取消</a>
-      </div>
-    </form>
-  </div>
-</div>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">保存</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('products.list_products') }}">取消</a>
+    </div>
+  </form>
+</section>
 {% endblock %}
