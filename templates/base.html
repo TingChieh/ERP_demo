@@ -7,39 +7,58 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   </head>
-  <body>
-    <div class="d-flex min-vh-100">
-      <aside class="sidebar p-3">
-        <h4 class="mb-4">ERP Demo</h4>
-        <nav class="nav flex-column gap-1">
-          <a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
-          <a class="nav-link" href="{{ url_for('assistant.assistant_page') }}">AI 助手</a>
-          <div class="nav-section">系统管理</div>
-          <a class="nav-link" href="{{ url_for('logs.database_logs') }}">数据库操作日志</a>
-          <a class="nav-link" href="{{ url_for('logs.api_logs') }}">API 调用日志</a>
+  <body class="app-body">
+    <div class="app-shell" data-app-shell="erp" data-page="{{ request.endpoint }}">
+      <aside class="sidebar" aria-label="主导航">
+        <a class="brand-mark" href="{{ url_for('dashboard') }}">ERP Demo</a>
+        <nav class="sidebar-nav">
+          <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" data-nav-endpoint="dashboard" {% if request.endpoint == 'dashboard' %}aria-current="page"{% endif %} href="{{ url_for('dashboard') }}">工作台</a>
+          <a class="nav-link {% if request.endpoint == 'assistant.assistant_page' %}active{% endif %}" data-nav-endpoint="assistant.assistant_page" {% if request.endpoint == 'assistant.assistant_page' %}aria-current="page"{% endif %} href="{{ url_for('assistant.assistant_page') }}">AI 助手</a>
           <div class="nav-section">基础资料</div>
-          <a class="nav-link" href="{{ url_for('products.list_products') }}">商品管理</a>
-          <a class="nav-link" href="{{ url_for('suppliers.list_suppliers') }}">供应商管理</a>
-          <a class="nav-link" href="{{ url_for('customers.list_customers') }}">客户管理</a>
-          <div class="nav-section">采购管理</div>
-          <a class="nav-link" href="{{ url_for('purchase_orders.list_purchase_orders') }}">采购订单</a>
-          <a class="nav-link" href="{{ url_for('purchase_orders.new_purchase_order') }}">新建采购订单</a>
-          <a class="nav-link disabled" href="#">采购入库</a>
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('products.') %}active{% endif %}" href="/products" data-nav-endpoint="products.list_products" {% if request.endpoint and request.endpoint.startswith('products.') %}aria-current="page"{% endif %}>商品管理</a>
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('suppliers.') %}active{% endif %}" data-nav-endpoint="suppliers.list_suppliers" {% if request.endpoint and request.endpoint.startswith('suppliers.') %}aria-current="page"{% endif %} href="{{ url_for('suppliers.list_suppliers') }}">供应商管理</a>
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('customers.') %}active{% endif %}" data-nav-endpoint="customers.list_customers" {% if request.endpoint and request.endpoint.startswith('customers.') %}aria-current="page"{% endif %} href="{{ url_for('customers.list_customers') }}">客户管理</a>
+          <div class="nav-section">业务管理</div>
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}active{% endif %}" data-nav-endpoint="purchase_orders.list_purchase_orders" {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}aria-current="page"{% endif %} href="{{ url_for('purchase_orders.list_purchase_orders') }}">采购订单</a>
+          <a class="nav-link disabled" href="#" aria-disabled="true">采购入库</a>
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}active{% endif %}" data-nav-endpoint="sales_orders.list_sales_orders" {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}aria-current="page"{% endif %} href="{{ url_for('sales_orders.list_sales_orders') }}">销售订单</a>
+          <a class="nav-link disabled" href="#" aria-disabled="true">销售出库</a>
           <div class="nav-section">库存管理</div>
-          <a class="nav-link disabled" href="#">当前库存</a>
-          <a class="nav-link disabled" href="#">库存流水</a>
-          <div class="nav-section">销售管理</div>
-          <a class="nav-link" href="{{ url_for('sales_orders.list_sales_orders') }}">销售订单</a>
-          <a class="nav-link" href="{{ url_for('sales_orders.new_sales_order') }}">新建销售订单</a>
-          <a class="nav-link disabled" href="#">销售出库</a>
-          <div class="nav-section">财务管理</div>
-          <a class="nav-link" href="{{ url_for('settlements.list_receivables') }}">应收账款</a>
-          <a class="nav-link" href="{{ url_for('settlements.list_payables') }}">应付账款</a>
+          <a class="nav-link disabled" href="#" aria-disabled="true">当前库存</a>
+          <a class="nav-link disabled" href="#" aria-disabled="true">库存流水</a>
+          <div class="nav-section">财务与系统</div>
+          <a class="nav-link {% if request.endpoint == 'settlements.list_receivables' %}active{% endif %}" data-nav-endpoint="settlements.list_receivables" {% if request.endpoint == 'settlements.list_receivables' %}aria-current="page"{% endif %} href="{{ url_for('settlements.list_receivables') }}">应收账款</a>
+          <a class="nav-link {% if request.endpoint == 'settlements.list_payables' %}active{% endif %}" data-nav-endpoint="settlements.list_payables" {% if request.endpoint == 'settlements.list_payables' %}aria-current="page"{% endif %} href="{{ url_for('settlements.list_payables') }}">应付账款</a>
+          <a class="nav-link {% if request.endpoint == 'logs.database_logs' %}active{% endif %}" data-nav-endpoint="logs.database_logs" {% if request.endpoint == 'logs.database_logs' %}aria-current="page"{% endif %} href="{{ url_for('logs.database_logs') }}">操作日志</a>
+          <a class="nav-link {% if request.endpoint == 'logs.api_logs' %}active{% endif %}" data-nav-endpoint="logs.api_logs" {% if request.endpoint == 'logs.api_logs' %}aria-current="page"{% endif %} href="{{ url_for('logs.api_logs') }}">API 日志</a>
         </nav>
       </aside>
-
-      <main class="flex-grow-1 p-4">
-        {% block content %}{% endblock %}
+      <main class="main-content">
+        <details class="mobile-nav">
+          <summary>打开导航</summary>
+          <nav class="mobile-nav-panel" aria-label="移动端主导航">
+            <a class="mobile-nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" {% if request.endpoint == 'dashboard' %}aria-current='page'{% endif %} href="{{ url_for('dashboard') }}">工作台</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'assistant.assistant_page' %}active{% endif %}" {% if request.endpoint == 'assistant.assistant_page' %}aria-current='page'{% endif %} href="{{ url_for('assistant.assistant_page') }}">AI 助手</a>
+            <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('products.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('products.') %}aria-current='page'{% endif %} href="{{ url_for('products.list_products') }}">商品管理</a>
+            <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('suppliers.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('suppliers.') %}aria-current='page'{% endif %} href="{{ url_for('suppliers.list_suppliers') }}">供应商管理</a>
+            <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('customers.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('customers.') %}aria-current='page'{% endif %} href="{{ url_for('customers.list_customers') }}">客户管理</a>
+            <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}aria-current='page'{% endif %} href="{{ url_for('purchase_orders.list_purchase_orders') }}">采购订单</a>
+            <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}aria-current='page'{% endif %} href="{{ url_for('sales_orders.list_sales_orders') }}">销售订单</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'settlements.list_receivables' %}active{% endif %}" {% if request.endpoint == 'settlements.list_receivables' %}aria-current='page'{% endif %} href="{{ url_for('settlements.list_receivables') }}">应收账款</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'settlements.list_payables' %}active{% endif %}" {% if request.endpoint == 'settlements.list_payables' %}aria-current='page'{% endif %} href="{{ url_for('settlements.list_payables') }}">应付账款</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'logs.database_logs' %}active{% endif %}" {% if request.endpoint == 'logs.database_logs' %}aria-current='page'{% endif %} href="{{ url_for('logs.database_logs') }}">操作日志</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'logs.api_logs' %}active{% endif %}" {% if request.endpoint == 'logs.api_logs' %}aria-current='page'{% endif %} href="{{ url_for('logs.api_logs') }}">API 日志</a>
+          </nav>
+        </details>
+        <header class="topbar">
+          <span class="topbar-kicker">ERP Demo</span>
+          <div class="topbar-actions">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('assistant.assistant_page') }}">AI 助手</a>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('purchase_orders.new_purchase_order') }}">新建采购订单</a>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('sales_orders.new_sales_order') }}">新建销售订单</a>
+          </div>
+        </header>
+        <div class="content-wrap">{% block content %}{% endblock %}</div>
       </main>
     </div>
   </body>
