@@ -38,6 +38,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .metric-grid-primary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .metric-grid-finance { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .metric-card { min-width: 0; min-height: 132px; padding: 20px; overflow: hidden; }
+.replenishment-warning-card { margin-top: 16px; padding: clamp(16px, 3vw, 24px); }
+.replenishment-warning-header h2 { margin: 0; font-size: 1.2rem; font-weight: 800; }
+.replenishment-warning-list { display: grid; margin-top: 1rem; }
+.replenishment-warning-row { display: grid; grid-template-columns: minmax(150px, 1.5fr) repeat(4, minmax(84px, 1fr)) auto; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid var(--erp-border); }
+.replenishment-product-name { font-weight: 750; }
+.replenishment-label { display: block; margin-bottom: 2px; color: var(--erp-muted); font-size: 0.75rem; font-weight: 650; }
+.replenishment-warning-empty { margin: 1rem 0 0; }
 .metric-card--coral { border-color: #ffd7df; background: #fff5f7; }
 .metric-card--mint { border-color: #d1eee1; background: #f2fbf7; }
 .metric-card--lavender { border-color: #e4dbff; background: #f8f5ff; }
@@ -91,10 +98,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .assistant-preview-line { display: flex; justify-content: space-between; gap: 16px; margin-top: 0.65rem; }
 .assistant-preview-total { margin-top: 1rem; font-weight: 800; }
 .assistant-preview-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1rem; }
+.assistant-replenishment-basis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin-top: 1rem; padding: 12px; border: 1px solid #ffd0d8; border-radius: 12px; background: #ffffff; }
+.assistant-replenishment-basis > strong { grid-column: 1 / -1; }
+.assistant-replenishment-basis-line { color: var(--erp-muted); font-size: 0.875rem; }
 
-@media (max-width: 560px) { .assistant-input-row { align-items: stretch; flex-direction: column; } .assistant-input-row .btn { width: 100%; } .assistant-preview-line { align-items: flex-start; flex-direction: column; gap: 4px; } }
+@media (max-width: 560px) { .assistant-input-row { align-items: stretch; flex-direction: column; } .assistant-input-row .btn { width: 100%; } .assistant-preview-line { align-items: flex-start; flex-direction: column; gap: 4px; } .assistant-replenishment-basis { grid-template-columns: minmax(0, 1fr); } }
 
 /* Responsive overrides */
 @media (max-width: 1100px) { .metric-grid-primary, .metric-grid-finance { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .app-shell { grid-template-columns: minmax(0, 1fr); } .sidebar { display: none; } .mobile-nav { display: block; margin: 14px clamp(18px, 3vw, 42px) 0; border: 1px solid var(--erp-border); border-radius: 12px; background: var(--erp-surface); } .mobile-nav summary { padding: 10px 14px; color: var(--erp-text); cursor: pointer; font-weight: 700; } .mobile-nav-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 0 8px 8px; } .mobile-nav-link { padding: 8px 10px; } .topbar { min-height: auto; padding-top: 14px; padding-bottom: 14px; } .page-header { align-items: stretch; flex-direction: column; } }
-@media (max-width: 560px) { .mobile-nav-panel, .metric-grid-primary, .metric-grid-finance, .form-grid--two-columns { grid-template-columns: minmax(0, 1fr); } .topbar { align-items: flex-start; flex-direction: column; } .topbar-actions { justify-content: flex-start; } }
+@media (max-width: 700px) { .replenishment-warning-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .replenishment-warning-row > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .mobile-nav-panel, .metric-grid-primary, .metric-grid-finance, .form-grid--two-columns { grid-template-columns: minmax(0, 1fr); } .topbar { align-items: flex-start; flex-direction: column; } .topbar-actions { justify-content: flex-start; } .replenishment-warning-row { grid-template-columns: minmax(0, 1fr); } .replenishment-warning-row > :first-child { grid-column: auto; } }

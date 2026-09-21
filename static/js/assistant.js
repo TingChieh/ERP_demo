@@ -11,13 +11,41 @@
     chat.scrollTop = chat.scrollHeight;
   }
 
+  function addPreviewText(parent, tagName, text, className) {
+    const element = document.createElement(tagName);
+    if (className) element.className = className;
+    element.textContent = text;
+    parent.appendChild(element);
+    return element;
+  }
+
+  function addReplenishmentBasis(card, recommendation) {
+    if (!recommendation) return;
+    const basis = document.createElement("div");
+    basis.className = "assistant-replenishment-basis";
+    addPreviewText(basis, "strong", "补货依据");
+    const values = [
+      ["当前库存", recommendation.current_stock],
+      ["7 天销量", recommendation.sales_7d],
+      ["日均销量", recommendation.avg_daily_sales_7d],
+      ["库存覆盖", recommendation.coverage == null ? "近期无销量" : `${recommendation.coverage} 天`],
+      ["待入库数量", recommendation.pending_purchase_qty],
+      ["推荐补货", recommendation.recommended_purchase_qty],
+    ];
+    values.forEach(([label, value]) => {
+      addPreviewText(basis, "div", `${label}：${value}`, "assistant-replenishment-basis-line");
+    });
+    card.appendChild(basis);
+  }
+
   function addResponse(response) {
     if (response.type === "confirmation") {
       const card = document.createElement("div");
       card.className = "assistant-preview surface-card assistant-preview-card";
       const title = response.action === "create_purchase_order" ? "采购订单预览" : "销售订单预览";
       const party = response.preview.supplier_name || response.preview.customer_name;
-      card.innerHTML = `<strong>${title}</strong><div class="small text-muted mt-1">${party}</div>`;
+      addPreviewText(card, "strong", title);
+      addPreviewText(card, "div", party, "small text-muted mt-1");
       response.preview.items.forEach((item) => {
         const line = document.createElement("div");
         line.className = "assistant-preview-line";
@@ -28,12 +56,20 @@
       total.className = "assistant-preview-total";
       total.textContent = `总金额：${response.preview.total_amount} 元`;
       card.appendChild(total);
+      addReplenishmentBasis(card, response.preview.recommendation);
       const actions = document.createElement("div");
       actions.className = "assistant-preview-actions";
-      actions.innerHTML = '<button type="button" class="btn btn-primary btn-sm">确认创建</button><button type="button" class="btn btn-outline-secondary btn-sm">取消</button>';
-      const buttons = actions.querySelectorAll("button");
-      buttons[0].addEventListener("click", () => confirmPreview(response.confirmation_token, "confirm"));
-      buttons[1].addEventListener("click", () => confirmPreview(response.confirmation_token, "cancel"));
+      const confirmButton = document.createElement("button");
+      confirmButton.type = "button";
+      confirmButton.className = "btn btn-primary btn-sm";
+      confirmButton.textContent = "确认创建";
+      confirmButton.addEventListener("click", () => confirmPreview(response.confirmation_token, "confirm"));
+      const cancelButton = document.createElement("button");
+      cancelButton.type = "button";
+      cancelButton.className = "btn btn-outline-secondary btn-sm";
+      cancelButton.textContent = "取消";
+      cancelButton.addEventListener("click", () => confirmPreview(response.confirmation_token, "cancel"));
+      actions.append(confirmButton, cancelButton);
       card.appendChild(actions);
       chat.appendChild(card);
       return;

@@ -22,4 +22,31 @@
   <article class="surface-card metric-card metric-card--mint"><div class="metric-label">未付应付账款</div><div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_payable) }}</div></article>
   <article class="surface-card metric-card metric-card--coral"><div class="metric-label">销售总额（已完成出库）</div><div class="metric-value">¥ {{ "%.2f"|format(metrics.sales_total) }}</div></article>
 </section>
+<section class="surface-card replenishment-warning-card" aria-labelledby="replenishment-warning-title">
+  <div class="replenishment-warning-header">
+    <div>
+      <p class="eyebrow">INVENTORY ALERTS</p>
+      <h2 id="replenishment-warning-title">库存预警</h2>
+    </div>
+  </div>
+  {% if low_stock_items %}
+    <div class="replenishment-warning-list">
+      {% for item in low_stock_items %}
+        <article class="replenishment-warning-row" data-replenishment-row="{{ item.product_id }}">
+          <div>
+            <div class="replenishment-product-name">{{ item.product_name }}</div>
+            <div class="small text-muted">SKU：{{ item.sku }}</div>
+          </div>
+          <div><span class="replenishment-label">当前库存</span>{{ item.current_stock }}</div>
+          <div><span class="replenishment-label">7 天销量</span>{{ item.sales_7d }}</div>
+          <div><span class="replenishment-label">库存覆盖</span>{% if item.days_of_inventory is not none %}{{ item.days_of_inventory }} 天{% else %}近期无销量{% endif %}</div>
+          <div><span class="replenishment-label">推荐补货</span>{{ item.recommended_purchase_qty }}</div>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('assistant.assistant_page', prompt='分析' ~ item.product_name ~ '是否需要补货') }}" aria-label="分析{{ item.product_name }}是否需要补货">分析补货</a>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="replenishment-warning-empty text-muted">当前没有需要关注的低库存商品。</p>
+  {% endif %}
+</section>
 {% endblock %}

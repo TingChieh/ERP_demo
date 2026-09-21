@@ -22,7 +22,7 @@ def _request_data():
 
 @assistant_bp.get("")
 def assistant_page():
-    return render_template("assistant.html")
+    return render_template("assistant.html", prompt=request.args.get("prompt", ""))
 
 
 @assistant_bp.post("/message")

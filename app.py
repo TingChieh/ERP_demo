@@ -21,6 +21,7 @@ from routes.sales_orders import sales_orders_bp
 from routes.settlements import settlements_bp
 from routes.suppliers import suppliers_bp
 from routes.logs import logs_bp
+from services.replenishment import get_low_stock_analyses
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -78,6 +79,7 @@ def create_app(test_config=None):
 
         return render_template(
             "dashboard.html",
+            low_stock_items=get_low_stock_analyses(limit=5),
             metrics={
                 "product_count": Product.query.count(),
                 "total_stock": total_stock,

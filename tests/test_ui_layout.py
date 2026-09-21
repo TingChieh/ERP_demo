@@ -168,6 +168,19 @@ def test_assistant_keeps_the_javascript_contract(app):
     assert 'JSON.stringify({ confirmation_token: token, action })' in assistant_js
 
 
+def test_assistant_prefills_an_escaped_dashboard_prompt(app):
+    response = app.test_client().get(
+        "/assistant",
+        query_string={"prompt": "分析机械键盘是否需要补货 & <script>"},
+    )
+    body = response.get_data(as_text=True)
+
+    assert 'value="分析机械键盘是否需要补货 &amp; &lt;script&gt;"' in body
+    assert 'id="assistant-chat"' in body
+    assert 'id="assistant-form"' in body
+    assert "assistant.js" in body
+
+
 def test_assistant_is_a_surface_page_with_examples(app):
     body = app.test_client().get("/assistant").get_data(as_text=True)
 

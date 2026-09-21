@@ -23,7 +23,7 @@
   <form id="assistant-form" class="assistant-composer surface-card">
     <label class="form-label" for="assistant-input">告诉 AI ERP Assistant 你要做什么</label>
     <div class="assistant-input-row">
-      <input id="assistant-input" name="message" class="form-control" autocomplete="off" placeholder="例如：查一下机械键盘库存" required>
+      <input id="assistant-input" name="message" class="form-control" autocomplete="off" placeholder="例如：查一下机械键盘库存" value="{{ prompt }}" required>
       <button class="btn btn-primary" type="submit">发送</button>
     </div>
   </form>
