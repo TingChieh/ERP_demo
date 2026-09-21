@@ -14,22 +14,22 @@
   function addResponse(response) {
     if (response.type === "confirmation") {
       const card = document.createElement("div");
-      card.className = "assistant-preview border rounded p-3 bg-light";
+      card.className = "assistant-preview surface-card assistant-preview-card";
       const title = response.action === "create_purchase_order" ? "采购订单预览" : "销售订单预览";
       const party = response.preview.supplier_name || response.preview.customer_name;
       card.innerHTML = `<strong>${title}</strong><div class="small text-muted mt-1">${party}</div>`;
       response.preview.items.forEach((item) => {
         const line = document.createElement("div");
-        line.className = "d-flex justify-content-between mt-2";
+        line.className = "assistant-preview-line";
         line.textContent = `${item.product_name} × ${item.quantity} · ${item.unit_price} 元 · 小计 ${item.subtotal} 元`;
         card.appendChild(line);
       });
       const total = document.createElement("div");
-      total.className = "fw-bold mt-3";
+      total.className = "assistant-preview-total";
       total.textContent = `总金额：${response.preview.total_amount} 元`;
       card.appendChild(total);
       const actions = document.createElement("div");
-      actions.className = "d-flex gap-2 mt-3";
+      actions.className = "assistant-preview-actions";
       actions.innerHTML = '<button type="button" class="btn btn-primary btn-sm">确认创建</button><button type="button" class="btn btn-outline-secondary btn-sm">取消</button>';
       const buttons = actions.querySelectorAll("button");
       buttons[0].addEventListener("click", () => confirmPreview(response.confirmation_token, "confirm"));

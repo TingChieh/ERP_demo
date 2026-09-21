@@ -117,3 +117,11 @@ def test_assistant_keeps_the_javascript_contract(app):
     assert 'id="assistant-form"' in body
     assert 'id="assistant-input"' in body
     assert "assistant.js" in body
+
+
+def test_assistant_is_a_surface_page_with_examples(app):
+    body = app.test_client().get("/assistant").get_data(as_text=True)
+
+    assert 'data-page-type="assistant"' in body
+    assert 'class="assistant-page surface-page' in body
+    assert 'class="assistant-example chip' in body
