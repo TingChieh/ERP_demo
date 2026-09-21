@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}AI ERP Assistant{% endblock %}
+
+{% block content %}
+<div class="assistant-page">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1">AI ERP Assistant</h1>
+      <p class="text-muted mb-0">用自然语言查询 ERP，订单创建会先生成预览。</p>
+    </div>
+    <span class="badge text-bg-light">DeepSeek Agent</span>
+  </div>
+
+  <div id="assistant-chat" class="assistant-chat card shadow-sm mb-3" aria-live="polite">
+    <div class="assistant-empty text-muted">你好，我可以帮你查询库存、未收应收，或生成采购/销售订单预览。</div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mb-3" id="assistant-examples">
+    <button class="btn btn-outline-secondary btn-sm assistant-example" type="button">查一下机械键盘库存</button>
+    <button class="btn btn-outline-secondary btn-sm assistant-example" type="button">向南京键盘供应商采购 100 个机械键盘，80 一个</button>
+    <button class="btn btn-outline-secondary btn-sm assistant-example" type="button">大圣科技买 20 个机械键盘，120 一个</button>
+    <button class="btn btn-outline-secondary btn-sm assistant-example" type="button">现在还有哪些客户没付款</button>
+  </div>
+
+  <form id="assistant-form" class="card card-body shadow-sm">
+    <label class="form-label" for="assistant-input">告诉 AI ERP Assistant 你要做什么</label>
+    <div class="input-group">
+      <input id="assistant-input" name="message" class="form-control" autocomplete="off" placeholder="例如：查一下机械键盘库存" required>
+      <button class="btn btn-primary" type="submit">发送</button>
+    </div>
+  </form>
+</div>
+<script src="{{ url_for('static', filename='js/assistant.js') }}"></script>
+{% endblock %}

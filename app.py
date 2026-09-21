@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 from flask import Flask, render_template
 from sqlalchemy import func
@@ -12,6 +13,7 @@ from models import (
     db,
 )
 from routes.customers import customers_bp
+from routes.assistant import assistant_bp
 from routes.products import products_bp
 from routes.purchase_orders import purchase_orders_bp
 from routes.sales_orders import sales_orders_bp
@@ -29,6 +31,8 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{DATABASE_PATH}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SECRET_KEY=os.getenv("SECRET_KEY", "dev-secret-change-me"),
+        AGENT_LLM_CLIENT=None,
     )
 
     if test_config:
@@ -41,6 +45,7 @@ def create_app(test_config=None):
     app.register_blueprint(settlements_bp)
     app.register_blueprint(suppliers_bp)
     app.register_blueprint(customers_bp)
+    app.register_blueprint(assistant_bp)
 
     @app.get("/")
     def dashboard():
