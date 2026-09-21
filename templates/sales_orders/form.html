@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}新建销售订单 - ERP Demo{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h1 class="h3 mb-1">新建销售订单</h1>
+  <p class="text-muted mb-0">订单创建后为草稿，不会扣减库存或产生应收账款。</p>
+</div>
+
+{% if errors %}
+<div class="alert alert-danger"><ul class="mb-0">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<form method="post">
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <label class="form-label" for="customer_id">客户</label>
+      <select class="form-select" id="customer_id" name="customer_id" required>
+        <option value="">请选择客户</option>
+        {% for customer in customers %}
+        <option value="{{ customer.id }}" {% if form_data.customer_id == customer.id|string %}selected{% endif %}>{{ customer.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <h2 class="h5 mb-3">销售商品</h2>
+      {% if products %}
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>选择</th><th>商品</th><th>SKU</th><th>数量</th><th>本次销售单价</th></tr></thead>
+          <tbody>
+            {% for product in products %}
+            {% set product_key = product.id|string %}
+            <tr>
+              <td><input class="form-check-input" type="checkbox" name="product_ids" value="{{ product.id }}" {% if product_key in form_data.selected_product_ids %}checked{% endif %}></td>
+              <td>{{ product.name }}</td>
+              <td>{{ product.sku }}</td>
+              <td><input class="form-control" name="quantity_{{ product.id }}" type="number" min="1" step="1" value="{{ form_data.quantities.get(product_key, '') }}"></td>
+              <td><input class="form-control" name="unit_price_{{ product.id }}" type="number" min="0" step="0.01" value="{{ form_data.unit_prices.get(product_key, product.sale_price) }}"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">暂无商品，请先维护商品基础资料。</p>
+      {% endif %}
+      <div class="alert alert-light mt-3 mb-0">订单总金额由服务器根据数量和本次销售单价自动计算。库存将在后续确认出库时校验。</div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" type="submit">保存草稿</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('sales_orders.list_sales_orders') }}">取消</a>
+  </div>
+</form>
+{% endblock %}

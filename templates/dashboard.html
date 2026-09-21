@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ERP Demo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1">Dashboard</h1>
+      <p class="text-muted mb-0">查看当前 ERP 演示数据概况</p>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4 col-xl-3">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">商品数量</div>
+        <div class="metric-value">{{ metrics.product_count }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">当前总库存</div>
+        <div class="metric-value">{{ metrics.total_stock }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">待入库采购订单</div>
+        <div class="metric-value">{{ metrics.pending_purchase_count }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">待出库销售订单</div>
+        <div class="metric-value">{{ metrics.pending_sales_count }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4 col-xl-4">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">未收应收账款</div>
+        <div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_receivable) }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4 col-xl-4">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">未付应付账款</div>
+        <div class="metric-value">¥ {{ "%.2f"|format(metrics.unpaid_payable) }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4 col-xl-4">
+      <div class="card metric-card h-100"><div class="card-body">
+        <div class="text-muted">销售总额（已完成出库）</div>
+        <div class="metric-value">¥ {{ "%.2f"|format(metrics.sales_total) }}</div>
+      </div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

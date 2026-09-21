@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}应收账款 - ERP Demo{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h1 class="h3 mb-1">应收账款</h1>
+  <p class="text-muted mb-0">销售出库成功后产生，当前只支持整笔收款。</p>
+</div>
+
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead><tr><th>销售订单号</th><th>客户</th><th>应收金额</th><th>状态</th><th>产生时间</th><th>收款时间</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for receivable in receivables %}
+        <tr>
+          <td><a href="{{ url_for('sales_orders.sales_order_detail', order_id=receivable.sales_order_id) }}">{{ receivable.sales_order.order_no }}</a></td>
+          <td>{{ receivable.customer.name }}</td>
+          <td>¥ {{ "%.2f"|format(receivable.amount) }}</td>
+          <td><span class="badge text-bg-secondary">{{ status_labels[receivable.status] }}</span></td>
+          <td>{{ receivable.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ receivable.paid_at.strftime("%Y-%m-%d %H:%M") if receivable.paid_at else "-" }}</td>
+          <td>
+            {% if receivable.status == "unpaid" %}
+            <form method="post" action="{{ url_for('settlements.receive_payment', receivable_id=receivable.id) }}">
+              <button class="btn btn-sm btn-primary" type="submit">确认收款</button>
+            </form>
+            {% else %}
+            <span class="text-muted">已完成</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">暂无应收账款</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

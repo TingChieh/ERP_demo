@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}客户管理 - ERP Demo{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div><h1 class="h3 mb-1">客户管理</h1><p class="text-muted mb-0">维护客户基础资料。</p></div>
+  <a class="btn btn-primary" href="{{ url_for('customers.new_customer') }}">新增客户</a>
+</div>
+<div class="card border-0 shadow-sm"><div class="table-responsive">
+  <table class="table table-hover mb-0 align-middle">
+    <thead><tr><th>客户名称</th><th>电话</th><th>操作</th></tr></thead>
+    <tbody>
+      {% for customer in customers %}
+      <tr><td>{{ customer.name }}</td><td>{{ customer.phone or "-" }}</td><td><a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}">编辑</a></td></tr>
+      {% else %}
+      <tr><td colspan="3" class="text-center text-muted py-4">暂无客户</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}
