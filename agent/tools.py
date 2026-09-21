@@ -9,6 +9,11 @@ from models import (
 )
 from services.orders import create_purchase_order_draft, create_sales_order_draft
 from services.logging import record_database_operation
+from services.replenishment import (
+    analyze_replenishment,
+    get_last_purchase_price,
+    get_low_stock_analyses,
+)
 
 from .schemas import (
     AgentResponse,
@@ -167,6 +172,156 @@ def get_inventory(*, product_name=None, sku=None):
         f"{product.name}（{product.sku}）当前库存是 {product.stock} 个。",
         data=data,
     )
+
+
+def _format_coverage(days_of_inventory):
+    if days_of_inventory is None:
+        return "无法计算"
+    if isinstance(days_of_inventory, float):
+        return f"{days_of_inventory:g}"
+    return str(days_of_inventory)
+
+
+def _replenishment_content(analysis):
+    return (
+        f"{analysis['product_name']}当前库存 {analysis['current_stock']} 个，"
+        f"最近 7 天销售 {analysis['sales_7d']} 个，"
+        f"库存覆盖 {_format_coverage(analysis['days_of_inventory'])} 天，"
+        f"待入库 {analysis['pending_purchase_qty']} 个，"
+        f"建议采购 {analysis['recommended_purchase_qty']} 个。"
+    )
+
+
+def analyze_low_stock(*, product_name=None):
+    try:
+        if product_name is None:
+            items = get_low_stock_analyses()
+            entity_id = "all"
+            detail = {"count": len(items), "scope": "low_stock"}
+            if not items:
+                content = "目前没有库存覆盖少于 7 天的商品。"
+            else:
+                content = "仅列出库存覆盖少于 7 天的商品：" + "\n".join(
+                    _replenishment_content(item) for item in items
+                )
+        else:
+            product = _resolve_product(product_name=product_name)
+            items = [analyze_replenishment(product.id)]
+            entity_id = product.id
+            detail = {"product_id": product.id}
+            analysis = items[0]
+            if analysis["sales_7d"] == 0:
+                content = (
+                    f"{product.name}最近 7 天没有销售记录，"
+                    "未生成基于销量的补货建议。"
+                )
+            else:
+                content = _replenishment_content(analysis)
+    except _ResolutionProblem as problem:
+        return problem.response
+
+    record_database_operation(
+        source="agent",
+        action="analyze_low_stock",
+        entity_type="Product",
+        entity_id=entity_id,
+        detail=detail,
+    )
+    return message_response(
+        content,
+        data={"analysis_type": "replenishment", "items": items},
+    )
+
+
+def prepare_replenishment_purchase(
+    *, product_name=None, supplier_name=None, quantity=None
+):
+    try:
+        product = _resolve_product(product_name=product_name)
+    except _ResolutionProblem as problem:
+        return problem.response
+
+    analysis = analyze_replenishment(product.id)
+    if analysis["sales_7d"] == 0:
+        return message_response(
+            f"{product.name}最近 7 天没有销售记录，未创建补货采购预览。"
+        )
+    if analysis["recommended_purchase_qty"] == 0:
+        return message_response(
+            f"{product.name}的待入库数量已覆盖目标库存，不需要补货。"
+        )
+
+    try:
+        if supplier_name:
+            supplier = _resolve_named(Supplier, "供应商", supplier_name)
+            supplier_source = "user"
+        else:
+            suppliers = Supplier.query.order_by(Supplier.name, Supplier.id).all()
+            if len(suppliers) != 1:
+                return clarification_response(
+                    "请确认补货供应商。",
+                    [_candidate_named(supplier) for supplier in suppliers],
+                )
+            supplier = suppliers[0]
+            supplier_source = "only_supplier"
+
+        if quantity is None:
+            purchase_quantity = analysis["recommended_purchase_qty"]
+            quantity_source = "recommendation"
+        else:
+            purchase_quantity = _parse_quantity(quantity)
+            quantity_source = "user"
+    except _ResolutionProblem as problem:
+        return problem.response
+    except ValueError as error:
+        return error_response(f"{product.name}{error}。")
+
+    last_purchase_price = get_last_purchase_price(product.id)
+    if last_purchase_price is None:
+        unit_price = Decimal(product.purchase_price)
+        price_source = "product_purchase_price"
+    else:
+        unit_price = last_purchase_price
+        price_source = "last_purchase_price"
+    subtotal = Decimal(purchase_quantity) * unit_price
+
+    preview = {
+        "supplier_name": supplier.name,
+        "supplier_source": supplier_source,
+        "items": [
+            {
+                "product_name": product.name,
+                "sku": product.sku,
+                "quantity": purchase_quantity,
+                "unit_price": format_money(unit_price),
+                "subtotal": format_money(subtotal),
+            }
+        ],
+        "total_amount": format_money(subtotal),
+        "quantity_source": quantity_source,
+        "price_source": price_source,
+        "recommendation": {
+            "current_stock": analysis["current_stock"],
+            "sales_7d": analysis["sales_7d"],
+            "avg_daily_sales_7d": analysis["avg_daily_sales_7d"],
+            "days_of_inventory": analysis["days_of_inventory"],
+            "coverage": analysis["days_of_inventory"],
+            "pending_purchase_qty": analysis["pending_purchase_qty"],
+            "target_days": 14,
+            "recommended_purchase_qty": analysis["recommended_purchase_qty"],
+        },
+    }
+    payload = {
+        "supplier_id": supplier.id,
+        "items": [
+            {
+                "product_id": product.id,
+                "quantity": purchase_quantity,
+                "unit_price": format_money(unit_price),
+            }
+        ],
+    }
+    return confirmation_response("create_purchase_order", preview, payload)
 
 
 def _prepare_order(*, party_model, party_label, party_name, items, price_field, action):
