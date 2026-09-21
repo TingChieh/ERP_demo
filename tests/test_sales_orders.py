@@ -1,4 +1,5 @@
 from pathlib import Path
+from decimal import Decimal
 
 import pytest
 from werkzeug.datastructures import MultiDict
@@ -13,6 +14,7 @@ from models import (
     SalesOrderItem,
     db,
 )
+from services.orders import create_sales_order_draft
 
 
 @pytest.fixture()
@@ -249,3 +251,47 @@ def test_pending_shipment_cannot_be_submitted_again(app, master_data):
     assert response.status_code == 400
     with app.app_context():
         assert db.session.get(SalesOrder, order_id).status == "pending_shipment"
+
+
+def test_shared_sales_service_creates_validated_draft(app, master_data):
+    with app.app_context():
+        order = create_sales_order_draft(
+            master_data["customer_id"],
+            [
+                {
+                    "product_id": master_data["keyboard_id"],
+                    "quantity": 2,
+                    "unit_price": Decimal("120.00"),
+                }
+            ],
+        )
+
+        assert order.status == "draft"
+        assert order.total_amount == Decimal("240.00")
+        assert order.items[0].product_id == master_data["keyboard_id"]
+        assert InventoryTransaction.query.count() == 0
+        assert AccountReceivable.query.count() == 0
+
+
+def test_shared_sales_service_rejects_duplicate_products_without_order(
+    app, master_data
+):
+    with app.app_context():
+        with pytest.raises(ValueError, match="不能重复"):
+            create_sales_order_draft(
+                master_data["customer_id"],
+                [
+                    {
+                        "product_id": master_data["keyboard_id"],
+                        "quantity": 1,
+                        "unit_price": Decimal("120.00"),
+                    },
+                    {
+                        "product_id": master_data["keyboard_id"],
+                        "quantity": 2,
+                        "unit_price": Decimal("119.00"),
+                    },
+                ],
+            )
+
+        assert SalesOrder.query.count() == 0

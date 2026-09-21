@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, redirect, render_template, request, url_for
@@ -9,10 +8,10 @@ from models import (
     InventoryTransaction,
     Product,
     PurchaseOrder,
-    PurchaseOrderItem,
     Supplier,
     db,
 )
+from services.orders import create_purchase_order_draft
 
 
 purchase_orders_bp = Blueprint(
@@ -56,28 +55,6 @@ def _read_form_data(request_form):
         "quantities": quantities,
         "unit_prices": unit_prices,
     }
-
-
-def _generate_order_no():
-    """Generate a simple unique PO number for this single-application demo."""
-    prefix = f"PO{datetime.now(timezone.utc):%Y%m%d}"
-    latest = (
-        PurchaseOrder.query.filter(PurchaseOrder.order_no.like(f"{prefix}%"))
-        .order_by(PurchaseOrder.order_no.desc())
-        .first()
-    )
-
-    next_number = 1
-    if latest:
-        suffix = latest.order_no[len(prefix) :]
-        if suffix.isdigit():
-            next_number = int(suffix) + 1
-
-    while True:
-        candidate = f"{prefix}{next_number:03d}"
-        if PurchaseOrder.query.filter_by(order_no=candidate).first() is None:
-            return candidate
-        next_number += 1
 
 
 def _validate_form(form_data):
@@ -168,32 +145,19 @@ def new_purchase_order():
         form_data = _read_form_data(request.form)
         errors, supplier_id, lines, total_amount = _validate_form(form_data)
         if not errors:
-            # A purchase order is a confirmed purchasing intention, not proof
-            # that goods have arrived. Therefore creation stays at draft and
-            # does not change Product.stock or create inventory/finance rows.
-            order = PurchaseOrder(
-                order_no=_generate_order_no(),
-                supplier_id=supplier_id,
-                status="draft",
-                total_amount=total_amount,
-            )
-
             try:
-                # One commit covers the order and every line. If any insert
-                # fails, rollback removes the whole draft instead of leaving
-                # a header without all of its details.
-                db.session.add(order)
-                for line in lines:
-                    db.session.add(
-                        PurchaseOrderItem(
-                            purchase_order=order,
-                            product_id=line["product"].id,
-                            quantity=line["quantity"],
-                            unit_price=line["unit_price"],
-                        )
-                    )
-                db.session.commit()
-            except SQLAlchemyError:
+                order = create_purchase_order_draft(
+                    supplier_id,
+                    [
+                        {
+                            "product_id": line["product"].id,
+                            "quantity": line["quantity"],
+                            "unit_price": line["unit_price"],
+                        }
+                        for line in lines
+                    ],
+                )
+            except (SQLAlchemyError, ValueError):
                 db.session.rollback()
                 errors.append("采购订单保存失败，请检查数据后重试")
             else:

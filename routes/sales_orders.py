@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, redirect, render_template, request, url_for
@@ -10,9 +9,9 @@ from models import (
     InventoryTransaction,
     Product,
     SalesOrder,
-    SalesOrderItem,
     db,
 )
+from services.orders import create_sales_order_draft
 
 
 sales_orders_bp = Blueprint("sales_orders", __name__, url_prefix="/sales-orders")
@@ -54,28 +53,6 @@ def _read_form_data(request_form):
         "quantities": quantities,
         "unit_prices": unit_prices,
     }
-
-
-def _generate_order_no():
-    """Generate a simple unique SO number for this single-application demo."""
-    prefix = f"SO{datetime.now(timezone.utc):%Y%m%d}"
-    latest = (
-        SalesOrder.query.filter(SalesOrder.order_no.like(f"{prefix}%"))
-        .order_by(SalesOrder.order_no.desc())
-        .first()
-    )
-
-    next_number = 1
-    if latest:
-        suffix = latest.order_no[len(prefix) :]
-        if suffix.isdigit():
-            next_number = int(suffix) + 1
-
-    while True:
-        candidate = f"{prefix}{next_number:03d}"
-        if SalesOrder.query.filter_by(order_no=candidate).first() is None:
-            return candidate
-        next_number += 1
 
 
 def _validate_form(form_data):
@@ -166,31 +143,19 @@ def new_sales_order():
         form_data = _read_form_data(request.form)
         errors, customer_id, lines, total_amount = _validate_form(form_data)
         if not errors:
-            # A sales order records customer demand and a price snapshot. It
-            # does not mean goods have shipped, so this step must not inspect,
-            # reserve, or decrease Product.stock.
-            order = SalesOrder(
-                order_no=_generate_order_no(),
-                customer_id=customer_id,
-                status="draft",
-                total_amount=total_amount,
-            )
-
             try:
-                # One commit covers the order and every line. A failure rolls
-                # back the whole sales order instead of leaving partial lines.
-                db.session.add(order)
-                for line in lines:
-                    db.session.add(
-                        SalesOrderItem(
-                            sales_order=order,
-                            product_id=line["product"].id,
-                            quantity=line["quantity"],
-                            unit_price=line["unit_price"],
-                        )
-                    )
-                db.session.commit()
-            except SQLAlchemyError:
+                order = create_sales_order_draft(
+                    customer_id,
+                    [
+                        {
+                            "product_id": line["product"].id,
+                            "quantity": line["quantity"],
+                            "unit_price": line["unit_price"],
+                        }
+                        for line in lines
+                    ],
+                )
+            except (SQLAlchemyError, ValueError):
                 db.session.rollback()
                 errors.append("销售订单保存失败，请检查数据后重试")
             else:
