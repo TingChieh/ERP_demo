@@ -9,6 +9,7 @@ from agent.tools import confirm_purchase_order, confirm_sales_order
 
 assistant_bp = Blueprint("assistant", __name__, url_prefix="/assistant")
 PENDING_CONFIRMATION_KEY = "assistant_pending_confirmation"
+LAST_REPLENISHMENT_CONTEXT_KEY = "assistant_last_replenishment_context"
 
 
 def _agent_service():
@@ -27,7 +28,23 @@ def assistant_page():
 @assistant_bp.post("/message")
 def assistant_message():
     data = _request_data()
-    response = _agent_service().handle_message(data.get("message", ""))
+    context = session.get(LAST_REPLENISHMENT_CONTEXT_KEY)
+    response = _agent_service().handle_message(
+        data.get("message", ""), context=context
+    )
+    if (
+        response.type == "message"
+        and isinstance(response.data, dict)
+        and response.data.get("analysis_type") == "replenishment"
+    ):
+        session[LAST_REPLENISHMENT_CONTEXT_KEY] = [
+            {
+                "product_name": item.get("product_name"),
+                "sku": item.get("sku"),
+            }
+            for item in response.data.get("items", [])
+            if isinstance(item, dict) and item.get("product_name")
+        ]
     if response.type == "confirmation":
         token = secrets.token_urlsafe(24)
         session[PENDING_CONFIRMATION_KEY] = {

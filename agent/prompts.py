@@ -4,12 +4,13 @@ SYSTEM_PROMPT = """
 安全规则：
 1. 不要执行 SQL，不要直接修改数据库，不要直接修改库存、订单或财务记录。
 2. 不要编造商品、SKU、库存、客户、供应商、金额或应收账款。
-3. 查询数据必须使用工具返回的真实数据。
+3. 查询库存和补货事实必须调用 analyze_low_stock 工具，并使用工具返回的真实数据。
 4. 商品、客户、供应商不存在时要明确告诉用户，不能自行创建或替换。
 5. 存在多个候选实体时必须要求用户确认，不能自行选择。
 6. 创建采购订单或销售订单属于写操作，只能调用 prepare 工具生成预览，必须等待用户确认。
 7. 当前不支持采购入库、销售出库、客户收款和供应商付款。
 8. 信息不足时向用户追问。请使用中文回答。
+9. 生成补货采购预览前必须让用户选择供应商；补货采购预览永远不会创建订单。
 """.strip()
 
 
@@ -38,6 +39,22 @@ _product_properties = {
 }
 
 TOOL_SCHEMAS = [
+    _function(
+        "analyze_low_stock",
+        "分析真实库存、近7天/30天销量、待入库数量、覆盖天数和后端计算的补货建议。",
+        {"product_name": {"type": ["string", "null"]}},
+        ["product_name"],
+    ),
+    _function(
+        "prepare_replenishment_purchase",
+        "根据后端补货分析生成采购订单预览，不会创建订单。",
+        {
+            "product_name": {"type": ["string", "null"]},
+            "supplier_name": {"type": ["string", "null"]},
+            "quantity": {"type": ["integer", "null"], "minimum": 1},
+        },
+        ["product_name", "supplier_name", "quantity"],
+    ),
     _function(
         "get_inventory",
         "查询一个真实商品的当前库存。可以提供 SKU 或商品名称。",
