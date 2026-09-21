@@ -324,6 +324,28 @@ def test_replenishment_preview_and_confirmation_are_safe(app, replenishment_data
         assert AccountPayable.query.count() == 0
 
 
+def test_replenishment_preview_defaults_the_only_supplier_without_writing(
+    app, replenishment_data
+):
+    set_llm(
+        app,
+        replenishment_call(supplier_name=None),
+    )
+
+    response = app.test_client().post(
+        "/assistant/message", json={"message": "生成机械键盘补货预览"}
+    )
+
+    assert response.status_code == 200
+    assert response.json["type"] == "confirmation"
+    assert response.json["preview"]["supplier_name"] == "南京键盘供应商"
+    assert response.json["preview"]["supplier_source"] == "only_supplier"
+    with app.app_context():
+        assert PurchaseOrder.query.count() == 0
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
 def test_replenishment_context_identifies_product_without_reusing_analysis_facts(
     app, replenishment_data
 ):
