@@ -7,9 +7,9 @@ Workspace: `/Users/tingchieh/.codex/worktrees/xiaohongshu-erp-ui/ERP`
 
 Task 6 的验收修复已完成，改动限定在共享 CSS、已有 UI 回归测试和本报告。
 窄屏表格现在在响应式 wrapper 内横向滚动，并保持最小可读宽度；未修改后端、
-模型、路由、服务或 assistant 业务契约。自动化测试为 138 passed，仅保留
-受限 worktree 导致的 pytest cache warning。修复后的浏览器截图留给控制器
-后续复核，本报告不把尚未观察到的截图结果写成已验证事实。
+模型、路由、服务或 assistant 业务契约。自动化测试为 139 passed，没有应用
+失败或 warning。修复后的浏览器 QA 已完成：窄屏表格
+在 wrapper 内横向滚动且页面本身没有横向溢出，桌面端布局也没有重叠或截断。
 
 ## 修复前问题与根因
 
@@ -24,6 +24,31 @@ Task 6 的验收修复已完成，改动限定在共享 CSS、已有 UI 回归�
 根因是各页面使用 Bootstrap `.table-responsive` wrapper，但共享 CSS 没有提供
 wrapper 的横向滚动和 table 的最小宽度；同时 `.table-card` 使用
 `overflow: hidden`，因此滚动必须限制在 wrapper 内，避免页面级横向溢出。
+
+## 修复后浏览器视觉 QA
+
+使用运行中的 Flask server `127.0.0.1:5055`，在 390x844 和 1440x900
+viewport 分别复核代表性页面。截图检查同时结合 DOM 尺寸测量，结果如下：
+
+```text
+390x844 /products:
+  body clientWidth=390, body scrollWidth=390
+  .table-responsive clientWidth=352, scrollWidth=680
+  table clientWidth=680, overflow-x=auto
+390x844 /purchase-orders/new:
+  body clientWidth=390, body scrollWidth=390
+  .table-responsive clientWidth=312, scrollWidth=680
+  table clientWidth=680, overflow-x=auto
+1440x900 /products:
+  body clientWidth=1440, body scrollWidth=1440
+  .table-responsive clientWidth=1122, scrollWidth=1122, table clientWidth=1122
+```
+
+`/products`、`/purchase-orders/new` 的截图中，列内容保持水平可读并在卡片
+内部滚动；没有页面级横向滚动。`/`、`/assistant`、`/purchase-orders` 和
+`/logs/api` 在桌面检查中没有重叠或截断；`/`、`/assistant` 在窄屏检查中
+保持堆叠布局。当前导航的桌面/移动响应式副本都指向当前 endpoint，没有出现
+互相冲突的 active item。
 
 ## TDD 修复证据
 
@@ -78,19 +103,12 @@ verification.
 Exit 0:
 
 ```text
-........................................................................ [ 52%]
-..................................................................       [100%]
-=============================== warnings summary ===============================
-../../../../../../opt/homebrew/lib/python3.14/site-packages/_pytest/cacheprovider.py:475
-  /opt/homebrew/lib/python3.14/site-packages/_pytest/cacheprovider.py:475: PytestCacheWarning: cache could not write path /Users/tingchieh/.codex/worktrees/xiaohongshu-erp-ui/ERP/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/tingchieh/.codex/worktrees/xiaohongshu-erp-ui/ERP/.pytest_cache/v/cache/nodeids'
-    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-138 passed, 1 warning in 3.28s
+........................................................................ [ 51%]
+...................................................................      [100%]
+139 passed in 3.17s
 ```
 
-The warning is an optional pytest-cache write denied in this restricted
-worktree; it is not an application failure.
+本次最终运行没有 warning。
 
 ### Status, whitespace, and diff
 
@@ -104,89 +122,25 @@ git diff --cached --name-status
 这些命令在此前的验收阶段退出码为 0；本次修复后的 `git diff --check` 也退出
 码为 0 且无输出。当前修复文件状态在报告末尾记录。
 
-### Initial route smoke check
+### 可复跑的路由、表单和 assistant 契约检查
+
+这些契约现在由 `tests/test_ui_layout.py` 的可执行回归测试覆盖：
 
 ```sh
-/opt/homebrew/bin/python3.14 - <<'PY'
-# Create an ephemeral SQLite database, seed a supplier/customer/product/order/
-# receivable/payable, then GET all brief-required routes through test_client.
-PY
+/opt/homebrew/bin/python3.14 -m pytest -q tests/test_ui_layout.py
 ```
 
 Exit 0:
 
 ```text
-ROUTE / status=200 shell=yes active-nav-markers=2
-ROUTE /products status=200 shell=yes active-nav-markers=2
-ROUTE /products/new status=200 shell=yes active-nav-markers=2
-ROUTE /purchase-orders status=200 shell=yes active-nav-markers=2
-ROUTE /purchase-orders/new status=200 shell=yes active-nav-markers=2
-ROUTE /purchase-orders/1 status=200 shell=yes active-nav-markers=2
-ROUTE /receivables status=200 shell=yes active-nav-markers=2
-ROUTE /logs/api status=200 shell=yes active-nav-markers=2
-ROUTE /assistant status=200 shell=yes active-nav-markers=2
+...................................                                      [100%]
+35 passed in 1.26s
 ```
 
-The two initial active markers are equivalent desktop/mobile navigation copies.
-
-### First form extraction (discarded)
-
-```sh
-/opt/homebrew/bin/python3.14 - <<'PY'
-# Same ephemeral application; inspect forms using a regular expression.
-PY
-```
-
-Exit 0:
-
-```text
-FORMS /products/new: none
-FORMS /customers/new: none
-FORMS /suppliers/new: none
-FORMS /purchase-orders/new: none
-FORMS /receivables: none
-FORMS /payables: none
-ASSISTANT page-form=yes message-endpoint=yes confirm-endpoint=yes confirm-action-payload=yes
-```
-
-This was an over-escaped regex in the ad-hoc verification script, so the result
-was not accepted as application evidence and no application file changed.
-
-### Corrected form, assistant, and navigation check
-
-```sh
-/opt/homebrew/bin/python3.14 - <<'PY'
-# Same seed data; parse forms with html.parser.HTMLParser and inspect
-# static/js/assistant.js.
-PY
-```
-
-Exit 0:
-
-```text
-ROUTE /: status=200 current-nav-hrefs=['/']
-ROUTE /products: status=200 current-nav-hrefs=['/products/']
-ROUTE /products/new: status=200 current-nav-hrefs=['/products/']
-ROUTE /purchase-orders: status=200 current-nav-hrefs=['/purchase-orders/']
-ROUTE /purchase-orders/new: status=200 current-nav-hrefs=['/purchase-orders/']
-ROUTE /purchase-orders/1: status=200 current-nav-hrefs=['/purchase-orders/']
-ROUTE /receivables: status=200 current-nav-hrefs=['/receivables']
-ROUTE /logs/api: status=200 current-nav-hrefs=['/logs/api']
-ROUTE /assistant: status=200 current-nav-hrefs=['/assistant']
-FORM-CONTRACT /products/new: method=post action=current-route
-FORM-CONTRACT /customers/new: method=post action=current-route
-FORM-CONTRACT /suppliers/new: method=post action=current-route
-FORM-CONTRACT /purchase-orders/new: method=post action=current-route
-FORM-CONTRACT /purchase-orders/1: method=post action=/purchase-orders/1/submit
-FORM-CONTRACT /receivables: method=post action=/receivables/1/receive-payment
-FORM-CONTRACT /payables: method=post action=/payables/1/pay
-ASSISTANT-CONTRACT page-form=True message-post=True confirm-post=True confirm-payload=True
-```
-
-`current-route` means no HTML `action` is present, so the browser POSTs to its
-existing URL. Explicit order/settlement actions retain their existing POST
-paths. Assistant JavaScript retains `/assistant/message`, `/assistant/confirm`,
-and the `confirmation_token` plus `action` payload.
+该测试实际 GET `/`、商品/客户/供应商表单、采购订单列表/新建/详情、应收、
+应付、API 日志和 assistant；断言共享 shell、唯一 active marker、现有表单
+method/action 路径，以及 assistant 的取消按钮和 `/assistant/confirm` payload。
+完整业务测试另外覆盖付款、订单提交和入库 POST 行为。
 
 ### Assistant cancel 静态契约证据
 
@@ -227,45 +181,23 @@ git diff --name-only master...HEAD | rg -v '^(templates/|static/css/|static/js/a
 git diff --name-only master...HEAD | rg '^(templates/|static/css/|static/js/assistant\\.js$|tests/test_ui_layout\\.py$|\\.superpowers/sdd/)'
 ```
 
-Exit 0. Relevant output:
-
-```text
-* (no branch)
-+ master
-1ca3a20 (HEAD) Record Task 5 implementation report
-750c0c6 Redesign assistant page presentation
-0c24f5c docs: add task 4 implementation report
-61f62fb feat: redesign order settlement and log pages
-af0c605 Redesign dashboard and master data pages
-8a1894f test: accept canonical product navigation URL
-1276d7f fix: generate product navigation URL
-6a01a13 feat: rebuild shared ERP application shell
-c79cf1b test: enforce single active navigation link
-312d778 test: add ERP UI layout regression coverage
-bef10d5 (master) docs: add ERP UI implementation plan
-```
-
-`git show HEAD` reports only the previous Task 5 report. The comparison from
-`master...HEAD` reports 24 files, 734 insertions, 360 deletions: task reports,
-`static/css/style.css`, `static/js/assistant.js`, 19 `templates/*.html` files,
-and `tests/test_ui_layout.py`. The excluded-path command had no output. No
-backend/logic files are in scope, and both `git diff --check` invocations had
-no output. This is the baseline committed scope before the current Task 6
-verification fix; the current uncommitted scope is listed below.
+`476897b` 是 Task 6 验收修复提交。`master...HEAD` 的变更限定为重做后的模板、
+共享 CSS、已有 assistant JavaScript、UI 测试和 SDD 报告；排除路径命令无输出。
+没有 backend、model、route 或 service 文件进入范围，两个 `git diff --check`
+命令均无输出。
 
 ## 最终状态
 
-CSS 回归修复、focused/full pytest、assistant cancel 静态契约检查和 whitespace
-检查均已完成。真实浏览器 QA 的修复前证据已记录；修复后的 1440x900 与
-390x844 截图复核由控制器后续执行，因此这里不声称未经观察的视觉结果。
+CSS 回归修复、focused/full pytest、assistant cancel 静态契约检查、路由/表单
+契约检查、whitespace 检查和 1440x900/390x844 浏览器 QA 均已完成。
 
-唯一已知 warning 是受限 worktree 中 pytest 无法写入可选 cache，不涉及应用行为。
-该 isolated worktree 当前为 detached HEAD，提交后以 commit hash 交接。
+最终运行没有 warning。该 isolated worktree 当前为 detached HEAD，提交后以
+commit hash 交接。
 
-提交前 `git status --short`：
+报告修订后的 `git status --short`：待提交的报告和测试改动如下；提交后应为
+clean。
 
 ```text
  M .superpowers/sdd/2026-09-21-xiaohongshu-style-erp-ui/task-6-report.md
- M static/css/style.css
  M tests/test_ui_layout.py
 ```

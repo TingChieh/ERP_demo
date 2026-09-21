@@ -3,7 +3,16 @@ from pathlib import Path
 import pytest
 
 from app import create_app
-from models import db
+from models import (
+    AccountPayable,
+    AccountReceivable,
+    Customer,
+    Product,
+    PurchaseOrder,
+    SalesOrder,
+    Supplier,
+    db,
+)
 
 
 @pytest.fixture()
@@ -118,6 +127,11 @@ def test_assistant_keeps_the_javascript_contract(app):
     assert 'id="assistant-input"' in body
     assert "assistant.js" in body
 
+    assistant_js = Path("static/js/assistant.js").read_text(encoding="utf-8")
+    assert 'confirmPreview(response.confirmation_token, "cancel")' in assistant_js
+    assert 'fetch("/assistant/confirm"' in assistant_js
+    assert 'JSON.stringify({ confirmation_token: token, action })' in assistant_js
+
 
 def test_assistant_is_a_surface_page_with_examples(app):
     body = app.test_client().get("/assistant").get_data(as_text=True)
@@ -132,3 +146,58 @@ def test_narrow_tables_keep_columns_readable_with_horizontal_scrolling():
 
     assert ".table-responsive { overflow-x: auto; }" in css
     assert ".table-responsive > .table { min-width: 680px; }" in css
+
+
+def test_business_forms_keep_existing_post_contracts(app):
+    client = app.test_client()
+
+    for path in ("/products/new", "/customers/new", "/suppliers/new", "/purchase-orders/new"):
+        body = client.get(path).get_data(as_text=True)
+        assert '<form method="post">' in body
+
+    with app.app_context():
+        supplier = Supplier(name="QA Supplier", phone="")
+        customer = Customer(name="QA Customer", phone="")
+        product = Product(
+            name="QA Product", sku="QA001", purchase_price=40, sale_price=69, stock=3
+        )
+        db.session.add_all([supplier, customer, product])
+        db.session.flush()
+        purchase_order = PurchaseOrder(
+            order_no="PO-QA", supplier_id=supplier.id, status="draft", total_amount=40
+        )
+        sales_order = SalesOrder(
+            order_no="SO-QA", customer_id=customer.id, status="completed", total_amount=69
+        )
+        db.session.add_all([purchase_order, sales_order])
+        db.session.flush()
+        receivable = AccountReceivable(
+            sales_order_id=sales_order.id,
+            customer_id=customer.id,
+            amount=69,
+            status="unpaid",
+        )
+        payable = AccountPayable(
+            purchase_order_id=purchase_order.id,
+            supplier_id=supplier.id,
+            amount=40,
+            status="unpaid",
+        )
+        db.session.add_all([receivable, payable])
+        db.session.commit()
+        purchase_order_id = purchase_order.id
+        receivable_id = receivable.id
+        payable_id = payable.id
+
+    assert (
+        f'action="/purchase-orders/{purchase_order_id}/submit"'
+        in client.get(f"/purchase-orders/{purchase_order_id}").get_data(as_text=True)
+    )
+    assert (
+        f'action="/receivables/{receivable_id}/receive-payment"'
+        in client.get("/receivables").get_data(as_text=True)
+    )
+    assert (
+        f'action="/payables/{payable_id}/pay"'
+        in client.get("/payables").get_data(as_text=True)
+    )
