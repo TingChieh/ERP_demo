@@ -20,6 +20,7 @@ from routes.purchase_orders import purchase_orders_bp
 from routes.sales_orders import sales_orders_bp
 from routes.settlements import settlements_bp
 from routes.suppliers import suppliers_bp
+from routes.logs import logs_bp
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -48,6 +49,7 @@ def create_app(test_config=None):
     app.register_blueprint(suppliers_bp)
     app.register_blueprint(customers_bp)
     app.register_blueprint(assistant_bp)
+    app.register_blueprint(logs_bp)
 
     @app.get("/")
     def dashboard():

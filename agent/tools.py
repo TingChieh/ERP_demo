@@ -8,6 +8,7 @@ from models import (
     db,
 )
 from services.orders import create_purchase_order_draft, create_sales_order_draft
+from services.logging import record_database_operation
 
 from .schemas import (
     AgentResponse,
@@ -155,6 +156,13 @@ def get_inventory(*, product_name=None, sku=None):
         "sku": product.sku,
         "stock": product.stock,
     }
+    record_database_operation(
+        source="agent",
+        action="get_inventory",
+        entity_type="Product",
+        entity_id=product.id,
+        detail={"sku": product.sku},
+    )
     return message_response(
         f"{product.name}（{product.sku}）当前库存是 {product.stock} 个。",
         data=data,
@@ -265,7 +273,7 @@ def confirm_purchase_order(payload):
         return error_response("采购订单确认数据无效。")
     try:
         order = create_purchase_order_draft(
-            payload["supplier_id"], payload["items"]
+            payload["supplier_id"], payload["items"], source="agent"
         )
     except (KeyError, TypeError, ValueError):
         return error_response("采购订单确认数据无效，未创建订单。")
@@ -282,7 +290,9 @@ def confirm_sales_order(payload):
     if not isinstance(payload, dict):
         return error_response("销售订单确认数据无效。")
     try:
-        order = create_sales_order_draft(payload["customer_id"], payload["items"])
+        order = create_sales_order_draft(
+            payload["customer_id"], payload["items"], source="agent"
+        )
     except (KeyError, TypeError, ValueError):
         return error_response("销售订单确认数据无效，未创建订单。")
     except Exception:
@@ -328,6 +338,13 @@ def get_unpaid_receivables(*, customer_name=None):
         Decimal("0"),
     )
     data = {"total_amount": format_money(total_amount), "items": items}
+    record_database_operation(
+        source="agent",
+        action="get_unpaid_receivables",
+        entity_type="AccountReceivable",
+        entity_id=(customer.id if customer_name else "all"),
+        detail={"count": len(items), "total_amount": format_money(total_amount)},
+    )
     if not items:
         return message_response("目前没有未收应收账款。", data=data)
     return message_response(

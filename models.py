@@ -230,3 +230,42 @@ class AccountPayable(db.Model):
 
     purchase_order = db.relationship("PurchaseOrder", back_populates="payable")
     supplier = db.relationship("Supplier")
+
+
+class DatabaseOperationLog(db.Model):
+    """Business-level database audit trail, not raw SQL logging."""
+
+    __tablename__ = "database_operation_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    source = db.Column(db.String(30), nullable=False, default="web")
+    action = db.Column(db.String(100), nullable=False)
+    entity_type = db.Column(db.String(50), nullable=True)
+    entity_id = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(20), nullable=False)
+    duration_ms = db.Column(db.Float, nullable=True)
+    detail_json = db.Column(db.Text, nullable=False, default="{}")
+    error_message = db.Column(db.Text, nullable=True)
+
+
+class ApiCallLog(db.Model):
+    """Metadata for outbound AI/API calls; secrets and full prompts are excluded."""
+
+    __tablename__ = "api_call_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    provider = db.Column(db.String(30), nullable=False)
+    model = db.Column(db.String(100), nullable=True)
+    endpoint = db.Column(db.String(255), nullable=True)
+    request_id = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(30), nullable=False)
+    http_status = db.Column(db.Integer, nullable=True)
+    duration_ms = db.Column(db.Float, nullable=True)
+    tool_name = db.Column(db.String(100), nullable=True)
+    prompt_tokens = db.Column(db.Integer, nullable=True)
+    completion_tokens = db.Column(db.Integer, nullable=True)
+    total_tokens = db.Column(db.Integer, nullable=True)
+    detail_json = db.Column(db.Text, nullable=False, default="{}")
+    error_message = db.Column(db.Text, nullable=True)

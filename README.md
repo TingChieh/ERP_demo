@@ -51,6 +51,13 @@ AI 助手页面：
 
 - `/assistant`：自然语言 ERP 助手
 
+系统日志页面：
+
+- `/logs/database`：ERP 业务数据库操作审计日志
+- `/logs/api`：DeepSeek API 调用元数据日志
+
+日志默认只保存动作、实体、状态、耗时、HTTP 状态、request id 和 token 数量，不保存 API Key、完整 Prompt、完整响应或工具参数。更新代码后如果是已有本地数据库，请重新运行一次 `python init_db.py` 创建新增日志表。
+
 ## DeepSeek 配置
 
 AI 助手通过 DeepSeek 的 OpenAI-compatible Chat Completions 接口进行 Function Calling。启动前配置：

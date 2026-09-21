@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from time import perf_counter
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -13,6 +14,7 @@ from models import (
     Supplier,
     db,
 )
+from services.logging import record_database_operation
 
 
 def _parse_quantity(value):
@@ -93,7 +95,8 @@ def _next_order_no(model, prefix):
         next_number += 1
 
 
-def create_purchase_order_draft(supplier_id, lines):
+def create_purchase_order_draft(supplier_id, lines, *, source="web"):
+    started = perf_counter()
     supplier = db.session.get(Supplier, supplier_id)
     if supplier is None:
         raise ValueError("供应商不存在")
@@ -126,12 +129,33 @@ def create_purchase_order_draft(supplier_id, lines):
         db.session.commit()
     except SQLAlchemyError:
         db.session.rollback()
+        record_database_operation(
+            source=source,
+            action="create_purchase_order_draft",
+            entity_type="PurchaseOrder",
+            status="error",
+            duration_ms=(perf_counter() - started) * 1000,
+            error_message="数据库事务失败",
+        )
         raise
 
+    record_database_operation(
+        source=source,
+        action="create_purchase_order_draft",
+        entity_type="PurchaseOrder",
+        entity_id=order.order_no,
+        status="success",
+        duration_ms=(perf_counter() - started) * 1000,
+        detail={
+            "line_count": len(normalized_lines),
+            "total_amount": str(total_amount),
+        },
+    )
     return order
 
 
-def create_sales_order_draft(customer_id, lines):
+def create_sales_order_draft(customer_id, lines, *, source="web"):
+    started = perf_counter()
     customer = db.session.get(Customer, customer_id)
     if customer is None:
         raise ValueError("客户不存在")
@@ -164,6 +188,26 @@ def create_sales_order_draft(customer_id, lines):
         db.session.commit()
     except SQLAlchemyError:
         db.session.rollback()
+        record_database_operation(
+            source=source,
+            action="create_sales_order_draft",
+            entity_type="SalesOrder",
+            status="error",
+            duration_ms=(perf_counter() - started) * 1000,
+            error_message="数据库事务失败",
+        )
         raise
 
+    record_database_operation(
+        source=source,
+        action="create_sales_order_draft",
+        entity_type="SalesOrder",
+        entity_id=order.order_no,
+        status="success",
+        duration_ms=(perf_counter() - started) * 1000,
+        detail={
+            "line_count": len(normalized_lines),
+            "total_amount": str(total_amount),
+        },
+    )
     return order

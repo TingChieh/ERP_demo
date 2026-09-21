@@ -1,8 +1,12 @@
 import json
 import os
+from time import perf_counter
 from typing import Protocol
 
+from flask import has_app_context
 from openai import OpenAI
+
+from services.logging import record_api_call
 
 from .schemas import ToolCall
 
@@ -48,8 +52,51 @@ class DeepSeekLLMClient:
         if self.client is None and self.api_key:
             self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
+    def _record_call(
+        self,
+        *,
+        started,
+        status,
+        message,
+        tools,
+        response=None,
+        tool_name=None,
+        error_message=None,
+        http_status=None,
+    ):
+        if not has_app_context():
+            return
+        usage = getattr(response, "usage", None)
+        record_api_call(
+            provider="deepseek",
+            model=self.model,
+            endpoint=f"{self.base_url.rstrip('/')}/chat/completions",
+            request_id=getattr(response, "id", None),
+            status=status,
+            http_status=http_status,
+            duration_ms=(perf_counter() - started) * 1000,
+            tool_name=tool_name,
+            prompt_tokens=getattr(usage, "prompt_tokens", None),
+            completion_tokens=getattr(usage, "completion_tokens", None),
+            total_tokens=getattr(usage, "total_tokens", None),
+            detail={
+                "message_chars": len(message),
+                "tool_count": len(tools or []),
+                "response_type": "tool_call" if tool_name else "text",
+            },
+            error_message=error_message,
+        )
+
     def parse_message(self, message, *, system_prompt, tools):
+        started = perf_counter()
         if self.client is None:
+            self._record_call(
+                started=started,
+                status="configuration_error",
+                message=message,
+                tools=tools,
+                error_message="未配置 DeepSeek API Key",
+            )
             raise LLMConfigurationError("未配置 DeepSeek API Key")
 
         try:
@@ -64,6 +111,15 @@ class DeepSeekLLMClient:
                 temperature=0,
             )
         except Exception as exc:
+            response = getattr(exc, "response", None)
+            self._record_call(
+                started=started,
+                status="error",
+                message=message,
+                tools=tools,
+                http_status=getattr(response, "status_code", None),
+                error_message=str(exc)[:500],
+            )
             raise LLMResponseError(f"DeepSeek 请求失败：{exc}") from exc
 
         try:
@@ -90,9 +146,27 @@ class DeepSeekLLMClient:
                 raise LLMResponseError("工具调用参数 JSON 无效") from exc
             if not isinstance(arguments, dict):
                 raise LLMResponseError("工具调用参数必须是对象")
-            return ToolCall(name=function.name, arguments=arguments)
+            result = ToolCall(name=function.name, arguments=arguments)
+            self._record_call(
+                started=started,
+                status="success",
+                message=message,
+                tools=tools,
+                response=response,
+                tool_name=result.name,
+                http_status=200,
+            )
+            return result
 
         content = getattr(assistant_message, "content", None)
         if not content or not str(content).strip():
             raise LLMResponseError("DeepSeek 没有返回可用内容")
+        self._record_call(
+            started=started,
+            status="success",
+            message=message,
+            tools=tools,
+            response=response,
+            http_status=200,
+        )
         return str(content).strip()

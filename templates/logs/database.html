@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}数据库操作日志{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">数据库操作日志</h1>
+    <p class="text-muted mb-0">记录 ERP 业务操作，不记录原始 SQL。</p>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logs.api_logs') }}">查看 API 调用日志</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>来源</th>
+          <th>动作</th>
+          <th>实体</th>
+          <th>状态</th>
+          <th>耗时</th>
+          <th>详情</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at }}</td>
+          <td>{{ log.source }}</td>
+          <td>{{ log.action }}</td>
+          <td>{{ log.entity_type or '' }} {{ log.entity_id or '' }}</td>
+          <td><span class="badge {% if log.status == 'success' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ log.status }}</span></td>
+          <td>{{ "%.2f"|format(log.duration_ms or 0) }} ms</td>
+          <td><code>{{ log.detail_json }}</code>{% if log.error_message %}<div class="text-danger small">{{ log.error_message }}</div>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">暂无数据库操作日志</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

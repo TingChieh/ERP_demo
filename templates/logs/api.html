@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}API 调用日志{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">API 调用日志</h1>
+    <p class="text-muted mb-0">记录 DeepSeek 调用元数据，不保存 API Key、完整 Prompt 或完整响应。</p>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logs.database_logs') }}">查看数据库操作日志</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>Provider / Model</th>
+          <th>状态</th>
+          <th>HTTP</th>
+          <th>工具</th>
+          <th>耗时</th>
+          <th>Token</th>
+          <th>错误</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at }}</td>
+          <td>{{ log.provider }} / {{ log.model or '' }}</td>
+          <td><span class="badge {% if log.status == 'success' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ log.status }}</span></td>
+          <td>{{ log.http_status or '' }}</td>
+          <td>{{ log.tool_name or 'text' }}</td>
+          <td>{{ "%.2f"|format(log.duration_ms or 0) }} ms</td>
+          <td>{{ log.total_tokens or '' }}</td>
+          <td class="text-danger small">{{ log.error_message or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">暂无 API 调用日志</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
