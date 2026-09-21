@@ -3,15 +3,16 @@
 {% block title %}数据库操作日志{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<section class="page-header" data-page-type="log-list">
   <div>
-    <h1 class="h3 mb-1">数据库操作日志</h1>
-    <p class="text-muted mb-0">记录 ERP 业务操作，不记录原始 SQL。</p>
+    <p class="eyebrow">AUDIT LOGS</p>
+    <h1>数据库操作日志</h1>
+    <p class="page-description">记录 ERP 业务操作，不记录原始 SQL。</p>
   </div>
   <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logs.api_logs') }}">查看 API 调用日志</a>
-</div>
+</section>
 
-<div class="card shadow-sm">
+<section class="surface-card table-card log-card">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle">
       <thead>
@@ -32,7 +33,7 @@
           <td>{{ log.source }}</td>
           <td>{{ log.action }}</td>
           <td>{{ log.entity_type or '' }} {{ log.entity_id or '' }}</td>
-          <td><span class="badge {% if log.status == 'success' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ log.status }}</span></td>
+          <td><span class="status-pill {% if log.status == 'success' %}status-pill--success{% else %}status-pill--error{% endif %}">{{ log.status }}</span></td>
           <td>{{ "%.2f"|format(log.duration_ms or 0) }} ms</td>
           <td><code>{{ log.detail_json }}</code>{% if log.error_message %}<div class="text-danger small">{{ log.error_message }}</div>{% endif %}</td>
         </tr>
@@ -42,5 +43,5 @@
       </tbody>
     </table>
   </div>
-</div>
+</section>
 {% endblock %}

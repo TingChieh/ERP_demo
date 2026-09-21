@@ -89,6 +89,26 @@ def test_dashboard_and_master_data_pages_use_page_types(app, path, marker):
     assert 'class="surface-card' in body
 
 
+@pytest.mark.parametrize(
+    "path,marker",
+    [
+        ("/purchase-orders", 'data-page-type="order-list"'),
+        ("/purchase-orders/new", 'data-page-type="order-form"'),
+        ("/sales-orders", 'data-page-type="order-list"'),
+        ("/sales-orders/new", 'data-page-type="order-form"'),
+        ("/receivables", 'data-page-type="settlement-list"'),
+        ("/payables", 'data-page-type="settlement-list"'),
+        ("/logs/database", 'data-page-type="log-list"'),
+        ("/logs/api", 'data-page-type="log-list"'),
+    ],
+)
+def test_business_pages_use_semantic_page_types(app, path, marker):
+    body = app.test_client().get(path).get_data(as_text=True)
+
+    assert marker in body
+    assert 'class="surface-card' in body
+
+
 def test_assistant_keeps_the_javascript_contract(app):
     response = app.test_client().get("/assistant")
     body = response.get_data(as_text=True)

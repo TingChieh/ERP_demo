@@ -3,14 +3,17 @@
 {% block title %}应付账款 - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <h1 class="h3 mb-1">应付账款</h1>
-  <p class="text-muted mb-0">采购入库成功后产生，当前只支持整笔付款。</p>
-</div>
+<section class="page-header" data-page-type="settlement-list">
+  <div>
+    <p class="eyebrow">SETTLEMENTS</p>
+    <h1>应付账款</h1>
+    <p class="page-description">采购入库成功后产生，当前只支持整笔付款。</p>
+  </div>
+</section>
 
 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
-<div class="card border-0 shadow-sm">
+<section class="surface-card table-card settlement-card">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle">
       <thead><tr><th>采购订单号</th><th>供应商</th><th>应付金额</th><th>状态</th><th>产生时间</th><th>付款时间</th><th>操作</th></tr></thead>
@@ -20,7 +23,7 @@
           <td><a href="{{ url_for('purchase_orders.purchase_order_detail', order_id=payable.purchase_order_id) }}">{{ payable.purchase_order.order_no }}</a></td>
           <td>{{ payable.supplier.name }}</td>
           <td>¥ {{ "%.2f"|format(payable.amount) }}</td>
-          <td><span class="badge text-bg-secondary">{{ status_labels[payable.status] }}</span></td>
+          <td><span class="status-pill status-pill--{{ payable.status }}">{{ status_labels[payable.status] }}</span></td>
           <td>{{ payable.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
           <td>{{ payable.paid_at.strftime("%Y-%m-%d %H:%M") if payable.paid_at else "-" }}</td>
           <td>
@@ -39,5 +42,5 @@
       </tbody>
     </table>
   </div>
-</div>
+</section>
 {% endblock %}

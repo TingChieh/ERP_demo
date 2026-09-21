@@ -3,28 +3,29 @@
 {% block title %}采购订单详情 - ERP Demo{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<section class="page-header" data-page-type="order-detail">
   <div>
-    <h1 class="h3 mb-1">采购订单详情</h1>
-    <p class="text-muted mb-0">{{ order.order_no }}</p>
+    <p class="eyebrow">PURCHASING</p>
+    <h1>采购订单详情</h1>
+    <p class="page-description">{{ order.order_no }}</p>
   </div>
   <a class="btn btn-outline-secondary" href="{{ url_for('purchase_orders.list_purchase_orders') }}">返回列表</a>
-</div>
+</section>
 
 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
-<div class="card border-0 shadow-sm mb-3">
-  <div class="card-body">
+<section class="surface-card order-summary-card mb-3">
+  <div class="order-summary-card__body">
     <div class="row g-3">
-      <div class="col-md-3"><div class="text-muted">订单号</div><div>{{ order.order_no }}</div></div>
-      <div class="col-md-3"><div class="text-muted">供应商</div><div>{{ order.supplier.name }}</div></div>
-      <div class="col-md-3"><div class="text-muted">创建时间</div><div>{{ order.created_at.strftime("%Y-%m-%d %H:%M") }}</div></div>
-      <div class="col-md-3"><div class="text-muted">状态</div><div><span class="badge text-bg-secondary">{{ status_labels[order.status] }}</span></div></div>
+      <div class="col-md-3"><div class="order-summary-label">订单号</div><div class="order-summary-value">{{ order.order_no }}</div></div>
+      <div class="col-md-3"><div class="order-summary-label">供应商</div><div class="order-summary-value">{{ order.supplier.name }}</div></div>
+      <div class="col-md-3"><div class="order-summary-label">创建时间</div><div class="order-summary-value">{{ order.created_at.strftime("%Y-%m-%d %H:%M") }}</div></div>
+      <div class="col-md-3"><div class="order-summary-label">状态</div><div><span class="status-pill status-pill--{{ order.status }}">{{ status_labels[order.status] }}</span></div></div>
     </div>
   </div>
-</div>
+</section>
 
-<div class="card border-0 shadow-sm mb-3">
+<section class="surface-card table-card mb-3">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle">
       <thead><tr><th>商品</th><th>SKU</th><th>数量</th><th>采购单价</th><th>小计</th></tr></thead>
@@ -42,26 +43,41 @@
       <tfoot><tr><th colspan="4" class="text-end">订单总金额</th><th>¥ {{ "%.2f"|format(order.total_amount) }}</th></tr></tfoot>
     </table>
   </div>
-</div>
+</section>
 
 {% if order.status == "draft" %}
-<form method="post" action="{{ url_for('purchase_orders.submit_purchase_order', order_id=order.id) }}">
-  <button class="btn btn-primary" type="submit">提交采购订单</button>
-</form>
+<section class="surface-card order-action-card mb-3">
+  <div class="order-action-card__body">
+    <h2 class="order-section-title">订单履约</h2>
+    <form method="post" action="{{ url_for('purchase_orders.submit_purchase_order', order_id=order.id) }}">
+      <button class="btn btn-primary" type="submit">提交采购订单</button>
+    </form>
+  </div>
+</section>
 {% elif order.status == "pending_receipt" %}
-<form method="post" action="{{ url_for('purchase_orders.receive_purchase_order', order_id=order.id) }}">
-  <button class="btn btn-primary" type="submit">确认入库</button>
-</form>
+<section class="surface-card order-action-card mb-3">
+  <div class="order-action-card__body">
+    <h2 class="order-section-title">订单履约</h2>
+    <form method="post" action="{{ url_for('purchase_orders.receive_purchase_order', order_id=order.id) }}">
+      <button class="btn btn-primary" type="submit">确认入库</button>
+    </form>
+  </div>
+</section>
 {% elif order.status == "completed" %}
-<div class="alert alert-success">已完成入库</div>
+<section class="surface-card order-action-card mb-3">
+  <div class="order-action-card__body">
+    <h2 class="order-section-title">订单履约</h2>
+    <div class="alert alert-success mb-0">已完成入库</div>
+  </div>
+</section>
 
-<div class="card border-0 shadow-sm mb-3">
-  <div class="card-body">
-    <h2 class="h5">应付账款</h2>
+<section class="surface-card order-settlement-card mb-3">
+  <div class="order-settlement-card__body">
+    <h2 class="order-section-title">应付账款</h2>
     {% if order.payable %}
     <div class="row g-3">
       <div class="col-md-4"><div class="text-muted">应付金额</div><div>¥ {{ "%.2f"|format(order.payable.amount) }}</div></div>
-      <div class="col-md-4"><div class="text-muted">状态</div><div>{{ payable_status_labels[order.payable.status] }}</div></div>
+      <div class="col-md-4"><div class="text-muted">状态</div><div><span class="status-pill status-pill--{{ order.payable.status }}">{{ payable_status_labels[order.payable.status] }}</span></div></div>
       <div class="col-md-2"><div class="text-muted">关联订单</div><div>{{ order.order_no }}</div></div>
       <div class="col-md-2"><div class="text-muted">付款时间</div><div>{{ order.payable.paid_at.strftime("%Y-%m-%d %H:%M") if order.payable.paid_at else "-" }}</div></div>
     </div>
@@ -69,11 +85,11 @@
     <p class="text-muted mb-0">暂无应付账款记录。</p>
     {% endif %}
   </div>
-</div>
+</section>
 
-<div class="card border-0 shadow-sm">
-  <div class="card-body">
-    <h2 class="h5">库存入库流水</h2>
+<section class="surface-card order-inventory-card">
+  <div class="order-inventory-card__body">
+    <h2 class="order-section-title">库存入库流水</h2>
     {% if inventory_transactions %}
     <div class="table-responsive">
       <table class="table table-hover mb-0 align-middle">
@@ -96,6 +112,6 @@
     <p class="text-muted mb-0">暂无入库流水记录。</p>
     {% endif %}
   </div>
-</div>
+</section>
 {% endif %}
 {% endblock %}
