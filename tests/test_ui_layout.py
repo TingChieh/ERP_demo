@@ -26,6 +26,18 @@ class FormTags(HTMLParser):
             self.forms.append(dict(attrs))
 
 
+class ActiveNavTags(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.active_links = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "a" and "nav-link" in attributes.get("class", ""):
+            if attributes.get("aria-current") == "page":
+                self.active_links.append(attributes)
+
+
 def assert_post_form(body, action=""):
     parser = FormTags()
     parser.feed(body)
@@ -80,14 +92,16 @@ def test_primary_pages_render_the_shared_shell(app, path, endpoint):
     assert f'data-page="{endpoint}"' in body
 
 
-def test_current_page_is_the_only_active_navigation_link(app):
+def test_current_page_is_the_only_active_navigation_target(app):
     response = app.test_client().get("/products")
     body = response.get_data(as_text=True)
 
     assert 'href="/products/"' in body
     assert 'data-nav-endpoint="products.list_products"' in body
-    assert body.count('aria-current="page"') == 1
-    assert 'aria-current="page"' in body
+    parser = ActiveNavTags()
+    parser.feed(body)
+    assert len(parser.active_links) == 2
+    assert {link["href"] for link in parser.active_links} == {"/products/"}
 
 
 def test_dashboard_keeps_all_existing_metric_values(app):
@@ -167,6 +181,17 @@ def test_narrow_tables_keep_columns_readable_with_horizontal_scrolling():
 
     assert ".table-responsive { overflow-x: auto; }" in css
     assert ".table-responsive > .table { min-width: 680px; }" in css
+    assert "@media (max-width: 1100px)" in css
+    assert ".metric-grid-primary, .metric-grid-finance { grid-template-columns: repeat(2, minmax(0, 1fr)); }" in css
+
+
+def test_theme_tokens_keep_text_contrast_readable():
+    css = Path("static/css/style.css").read_text(encoding="utf-8")
+
+    assert "--erp-muted: #6f6f6f" in css
+    assert "--erp-primary: #c92b4b" in css
+    assert "--bs-btn-hover-bg: #b42342" in css
+    assert "--bs-btn-active-bg: #a61f3b" in css
 
 
 def test_business_forms_keep_existing_post_contracts(app):
@@ -186,10 +211,27 @@ def test_business_forms_keep_existing_post_contracts(app):
         purchase_order = PurchaseOrder(
             order_no="PO-QA", supplier_id=supplier.id, status="draft", total_amount=40
         )
+        pending_purchase_order = PurchaseOrder(
+            order_no="PO-QA-PENDING",
+            supplier_id=supplier.id,
+            status="pending_receipt",
+            total_amount=40,
+        )
         sales_order = SalesOrder(
             order_no="SO-QA", customer_id=customer.id, status="completed", total_amount=69
         )
-        db.session.add_all([purchase_order, sales_order])
+        draft_sales_order = SalesOrder(
+            order_no="SO-QA-DRAFT", customer_id=customer.id, status="draft", total_amount=69
+        )
+        pending_sales_order = SalesOrder(
+            order_no="SO-QA-PENDING",
+            customer_id=customer.id,
+            status="pending_shipment",
+            total_amount=69,
+        )
+        db.session.add_all(
+            [purchase_order, pending_purchase_order, sales_order, draft_sales_order, pending_sales_order]
+        )
         db.session.flush()
         receivable = AccountReceivable(
             sales_order_id=sales_order.id,
@@ -206,12 +248,33 @@ def test_business_forms_keep_existing_post_contracts(app):
         db.session.add_all([receivable, payable])
         db.session.commit()
         purchase_order_id = purchase_order.id
+        pending_purchase_order_id = pending_purchase_order.id
         receivable_id = receivable.id
         payable_id = payable.id
+        draft_sales_order_id = draft_sales_order.id
+        pending_sales_order_id = pending_sales_order.id
+        product_id = product.id
+        customer_id = customer.id
+        supplier_id = supplier.id
 
     assert_post_form(
         client.get(f"/purchase-orders/{purchase_order_id}").get_data(as_text=True),
         f"/purchase-orders/{purchase_order_id}/submit",
+    )
+    assert_post_form(
+        client.get(f"/purchase-orders/{pending_purchase_order_id}").get_data(as_text=True),
+        f"/purchase-orders/{pending_purchase_order_id}/receive",
+    )
+    assert_post_form(
+        client.get("/sales-orders/new").get_data(as_text=True)
+    )
+    assert_post_form(
+        client.get(f"/sales-orders/{draft_sales_order_id}").get_data(as_text=True),
+        f"/sales-orders/{draft_sales_order_id}/submit",
+    )
+    assert_post_form(
+        client.get(f"/sales-orders/{pending_sales_order_id}").get_data(as_text=True),
+        f"/sales-orders/{pending_sales_order_id}/ship",
     )
     assert_post_form(
         client.get("/receivables").get_data(as_text=True),
@@ -221,3 +284,6 @@ def test_business_forms_keep_existing_post_contracts(app):
         client.get("/payables").get_data(as_text=True),
         f"/payables/{payable_id}/pay",
     )
+    assert_post_form(client.get(f"/products/{product_id}/edit").get_data(as_text=True))
+    assert_post_form(client.get(f"/customers/{customer_id}/edit").get_data(as_text=True))
+    assert_post_form(client.get(f"/suppliers/{supplier_id}/edit").get_data(as_text=True))

@@ -1,4 +1,4 @@
-:root { --erp-canvas: #f7f7f5; --erp-surface: #ffffff; --erp-text: #252525; --erp-muted: #7d7d7d; --erp-border: #ecece8; --erp-primary: #ff385c; --erp-primary-soft: #fff0f2; --erp-success: #29956a; --erp-shadow: 0 12px 32px rgba(38, 38, 38, 0.06); }
+:root { --erp-canvas: #f7f7f5; --erp-surface: #ffffff; --erp-text: #252525; --erp-muted: #6f6f6f; --erp-border: #ecece8; --erp-primary: #c92b4b; --erp-primary-soft: #fff0f2; --erp-success: #29956a; --erp-shadow: 0 12px 32px rgba(38, 38, 38, 0.06); }
 
 /* Tokens and reset */
 * { box-sizing: border-box; }
@@ -23,8 +23,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 76px; border-bottom: 1px solid var(--erp-border); }
 .topbar-kicker { color: var(--erp-muted); font-size: 0.875rem; font-weight: 700; }
 .topbar-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.btn-primary { --bs-btn-bg: var(--erp-primary); --bs-btn-border-color: var(--erp-primary); --bs-btn-hover-bg: #e82e50; --bs-btn-hover-border-color: #e82e50; --bs-btn-active-bg: #d82747; --bs-btn-active-border-color: #d82747; }
-.btn-outline-primary { --bs-btn-color: var(--erp-primary); --bs-btn-border-color: var(--erp-primary); --bs-btn-hover-bg: var(--erp-primary); --bs-btn-hover-border-color: var(--erp-primary); --bs-btn-active-bg: #d82747; --bs-btn-active-border-color: #d82747; }
+.btn-primary { --bs-btn-bg: var(--erp-primary); --bs-btn-border-color: var(--erp-primary); --bs-btn-hover-bg: #b42342; --bs-btn-hover-border-color: #b42342; --bs-btn-active-bg: #a61f3b; --bs-btn-active-border-color: #a61f3b; }
+.btn-outline-primary { --bs-btn-color: var(--erp-primary); --bs-btn-border-color: var(--erp-primary); --bs-btn-hover-bg: var(--erp-primary); --bs-btn-hover-border-color: var(--erp-primary); --bs-btn-active-bg: #a61f3b; --bs-btn-active-border-color: #a61f3b; }
 .mobile-nav { display: none; }
 
 /* Page primitives */
@@ -37,13 +37,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .metric-grid + .metric-grid { margin-top: 16px; }
 .metric-grid-primary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .metric-grid-finance { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.metric-card { min-height: 132px; padding: 20px; overflow: hidden; }
+.metric-card { min-width: 0; min-height: 132px; padding: 20px; overflow: hidden; }
 .metric-card--coral { border-color: #ffd7df; background: #fff5f7; }
 .metric-card--mint { border-color: #d1eee1; background: #f2fbf7; }
 .metric-card--lavender { border-color: #e4dbff; background: #f8f5ff; }
 .metric-card--peach { border-color: #ffdfc9; background: #fff7f1; }
 .metric-label { color: var(--erp-muted); font-size: 0.875rem; font-weight: 700; }
-.metric-value { margin-top: 0.5rem; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; }
+.metric-value { margin-top: 0.5rem; overflow-wrap: anywhere; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; }
 
 /* Table, form, and status primitives */
 .table-card { overflow: hidden; }
@@ -55,7 +55,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .form-grid--two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .form-errors { max-width: 760px; margin-bottom: 16px; border-radius: 14px; }
 .form-control, .form-select { border-color: var(--erp-border); border-radius: 10px; }
-.form-control:focus, .form-select:focus { border-color: var(--erp-primary); box-shadow: 0 0 0 0.25rem rgba(255, 56, 92, 0.15); }
+.form-control:focus, .form-select:focus { border-color: var(--erp-primary); box-shadow: 0 0 0 0.25rem rgba(201, 43, 75, 0.18); }
 .status-pill { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 750; line-height: 1.2; }
 .status-pill--draft { color: #8a5a00; background: #fff3cf; }
 .status-pill--pending_receipt, .status-pill--pending_shipment { color: #874a08; background: #ffead2; }
@@ -95,5 +95,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 560px) { .assistant-input-row { align-items: stretch; flex-direction: column; } .assistant-input-row .btn { width: 100%; } .assistant-preview-line { align-items: flex-start; flex-direction: column; gap: 4px; } }
 
 /* Responsive overrides */
-@media (max-width: 900px) { .app-shell { grid-template-columns: minmax(0, 1fr); } .sidebar { display: none; } .mobile-nav { display: block; margin: 14px clamp(18px, 3vw, 42px) 0; border: 1px solid var(--erp-border); border-radius: 12px; background: var(--erp-surface); } .mobile-nav summary { padding: 10px 14px; color: var(--erp-text); cursor: pointer; font-weight: 700; } .mobile-nav-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 0 8px 8px; } .mobile-nav-link { padding: 8px 10px; } .topbar { min-height: auto; padding-top: 14px; padding-bottom: 14px; } .page-header { align-items: stretch; flex-direction: column; } .metric-grid-primary, .metric-grid-finance { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .metric-grid-primary, .metric-grid-finance { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .app-shell { grid-template-columns: minmax(0, 1fr); } .sidebar { display: none; } .mobile-nav { display: block; margin: 14px clamp(18px, 3vw, 42px) 0; border: 1px solid var(--erp-border); border-radius: 12px; background: var(--erp-surface); } .mobile-nav summary { padding: 10px 14px; color: var(--erp-text); cursor: pointer; font-weight: 700; } .mobile-nav-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 0 8px 8px; } .mobile-nav-link { padding: 8px 10px; } .topbar { min-height: auto; padding-top: 14px; padding-bottom: 14px; } .page-header { align-items: stretch; flex-direction: column; } }
 @media (max-width: 560px) { .mobile-nav-panel, .metric-grid-primary, .metric-grid-finance, .form-grid--two-columns { grid-template-columns: minmax(0, 1fr); } .topbar { align-items: flex-start; flex-direction: column; } .topbar-actions { justify-content: flex-start; } }
