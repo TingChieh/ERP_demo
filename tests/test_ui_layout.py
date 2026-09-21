@@ -1,3 +1,4 @@
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,26 @@ from models import (
     Supplier,
     db,
 )
+
+
+class FormTags(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.forms = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "form":
+            self.forms.append(dict(attrs))
+
+
+def assert_post_form(body, action=""):
+    parser = FormTags()
+    parser.feed(body)
+    assert any(
+        form.get("method", "get").lower() == "post"
+        and form.get("action", "") == action
+        for form in parser.forms
+    )
 
 
 @pytest.fixture()
@@ -152,8 +173,7 @@ def test_business_forms_keep_existing_post_contracts(app):
     client = app.test_client()
 
     for path in ("/products/new", "/customers/new", "/suppliers/new", "/purchase-orders/new"):
-        body = client.get(path).get_data(as_text=True)
-        assert '<form method="post">' in body
+        assert_post_form(client.get(path).get_data(as_text=True))
 
     with app.app_context():
         supplier = Supplier(name="QA Supplier", phone="")
@@ -189,15 +209,15 @@ def test_business_forms_keep_existing_post_contracts(app):
         receivable_id = receivable.id
         payable_id = payable.id
 
-    assert (
-        f'action="/purchase-orders/{purchase_order_id}/submit"'
-        in client.get(f"/purchase-orders/{purchase_order_id}").get_data(as_text=True)
+    assert_post_form(
+        client.get(f"/purchase-orders/{purchase_order_id}").get_data(as_text=True),
+        f"/purchase-orders/{purchase_order_id}/submit",
     )
-    assert (
-        f'action="/receivables/{receivable_id}/receive-payment"'
-        in client.get("/receivables").get_data(as_text=True)
+    assert_post_form(
+        client.get("/receivables").get_data(as_text=True),
+        f"/receivables/{receivable_id}/receive-payment",
     )
-    assert (
-        f'action="/payables/{payable_id}/pay"'
-        in client.get("/payables").get_data(as_text=True)
+    assert_post_form(
+        client.get("/payables").get_data(as_text=True),
+        f"/payables/{payable_id}/pay",
     )
