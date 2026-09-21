@@ -4,6 +4,7 @@ import os
 from flask import Flask, render_template
 from sqlalchemy import func
 
+from config import load_local_config
 from models import (
     AccountPayable,
     AccountReceivable,
@@ -23,6 +24,7 @@ from routes.suppliers import suppliers_bp
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BASE_DIR / "database.db"
+load_local_config()
 
 
 def create_app(test_config=None):

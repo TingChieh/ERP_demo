@@ -63,6 +63,8 @@ export SECRET_KEY="replace-in-production"
 python app.py
 ```
 
+也可以直接复制项目根目录的 `.env.example` 为 `.env`，然后填写 `DEEPSEEK_API_KEY`；应用启动时会自动读取 `.env`。`.env` 已加入 `.gitignore`，不会提交 API Key。
+
 当前 AI 助手只支持库存查询、采购订单预览、销售订单预览和未收应收查询。采购或销售订单必须先由助手生成预览，再点击确认创建草稿；助手不会直接执行采购入库、销售出库、收款或付款。
 
 测试通过注入 Mock LLM，不需要 DeepSeek API Key，也不会访问网络。
