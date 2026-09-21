@@ -56,6 +56,7 @@ def test_current_page_is_the_only_active_navigation_link(app):
 
     assert 'href="/products"' in body
     assert 'data-nav-endpoint="products.list_products"' in body
+    assert body.count('aria-current="page"') == 1
     assert 'aria-current="page"' in body
 
 
