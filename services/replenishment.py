@@ -107,7 +107,11 @@ def analyze_replenishment(product_id, as_of=None):
     recommended = calculate_recommended_purchase_qty(product.stock, pending, avg_7d)
     default_purchase_price = Decimal(product.purchase_price)
     last_purchase_price = get_last_purchase_price(product_id)
-    purchase_price = last_purchase_price or default_purchase_price
+    purchase_price = (
+        last_purchase_price
+        if last_purchase_price is not None
+        else default_purchase_price
+    )
 
     return {
         "product_id": product.id,
@@ -122,7 +126,11 @@ def analyze_replenishment(product_id, as_of=None):
         "days_of_inventory": _number(coverage),
         "recommended_purchase_qty": recommended,
         "default_purchase_price": _money(default_purchase_price),
-        "last_purchase_price": _money(last_purchase_price) if last_purchase_price else None,
+        "last_purchase_price": (
+            _money(last_purchase_price)
+            if last_purchase_price is not None
+            else None
+        ),
         "purchase_price": _money(purchase_price),
         "low_stock": coverage is not None and coverage < 7,
     }
@@ -134,7 +142,6 @@ def get_low_stock_analyses(limit=5, as_of=None):
     for product in products:
         analysis = analyze_replenishment(product.id, as_of=as_of)
         if analysis["low_stock"]:
-            analysis = {"product_id": product.id, **analysis}
             analyses.append(analysis)
     analyses.sort(key=lambda item: (item["days_of_inventory"], item["product_id"]))
     return analyses[:limit]

@@ -167,6 +167,28 @@ def test_last_purchase_price_returns_none_without_history(app, product_without_h
         assert get_last_purchase_price(product_without_history.id) is None
 
 
+def test_analysis_preserves_latest_zero_purchase_price(app, data):
+    with app.app_context():
+        order = PurchaseOrder(
+            order_no="PO-ZERO-PRICE",
+            supplier_id=data["supplier_id"],
+            status="completed",
+            created_at=AS_OF - timedelta(days=1),
+        )
+        order.items.append(
+            PurchaseOrderItem(
+                product_id=data["product_id"], quantity=1, unit_price=Decimal("0.00")
+            )
+        )
+        db.session.add(order)
+        db.session.commit()
+
+        analysis = analyze_replenishment(data["product_id"], as_of=AS_OF)
+
+    assert analysis["last_purchase_price"] == "0.00"
+    assert analysis["purchase_price"] == "0.00"
+
+
 def test_days_of_inventory_uses_recent_average(app):
     assert calculate_days_of_inventory(20, Decimal("5")) == Decimal("4.00")
 
