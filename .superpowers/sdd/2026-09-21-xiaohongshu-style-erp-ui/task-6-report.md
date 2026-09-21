@@ -9,7 +9,8 @@ Task 6 的验收修复已完成，改动限定在共享 CSS、已有 UI 回归�
 窄屏表格现在在响应式 wrapper 内横向滚动，并保持最小可读宽度；中等桌面宽度
 下指标卡改为两列且长数值可断行；主题色和 muted text 已调整到可读对比度。
 未修改后端、模型、路由、服务或 assistant 业务契约。自动化测试为 140 passed，
-没有应用失败或 warning。修复后的浏览器 QA 已完成：窄屏表格
+当前 worktree 的最终运行没有应用失败或 warning；在受限的临时导出副本中若出现
+PytestCacheWarning，也只是可选 cache 写入限制。修复后的浏览器 QA 已完成：窄屏表格
 在 wrapper 内横向滚动且页面本身没有横向溢出，桌面端布局也没有重叠或截断。
 
 ## 修复前问题与根因
@@ -128,7 +129,8 @@ Exit 0:
 140 passed in 3.37s
 ```
 
-本次最终运行没有 warning。
+本次最终 worktree 运行没有 warning；临时导出副本中的可选 pytest cache warning
+不代表应用失败。
 
 ### Status, whitespace, and diff
 
