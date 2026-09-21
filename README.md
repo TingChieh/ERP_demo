@@ -14,6 +14,7 @@
 - 销售订单的列表、新建、详情查看和草稿提交
 - 待出库销售订单的确认出库、库存流水和应收账款生成
 - 应收账款和应付账款列表、整笔收款和整笔付款
+- DeepSeek AI ERP Assistant：库存查询、采购/销售订单预览、未收应收查询
 
 当前阶段暂不包含部分收款、部分付款、多次收款、多次付款、发票、对账、退款、退货、现金流和银行账户模块。
 
@@ -45,6 +46,26 @@ flask --app app run --debug
 
 - `/receivables`：应收账款和确认收款
 - `/payables`：应付账款和确认付款
+
+AI 助手页面：
+
+- `/assistant`：自然语言 ERP 助手
+
+## DeepSeek 配置
+
+AI 助手通过 DeepSeek 的 OpenAI-compatible Chat Completions 接口进行 Function Calling。启动前配置：
+
+```bash
+export DEEPSEEK_API_KEY="your-key"
+export DEEPSEEK_MODEL="deepseek-chat"
+export DEEPSEEK_BASE_URL="https://api.deepseek.com"
+export SECRET_KEY="replace-in-production"
+python app.py
+```
+
+当前 AI 助手只支持库存查询、采购订单预览、销售订单预览和未收应收查询。采购或销售订单必须先由助手生成预览，再点击确认创建草稿；助手不会直接执行采购入库、销售出库、收款或付款。
+
+测试通过注入 Mock LLM，不需要 DeepSeek API Key，也不会访问网络。
 
 收款和付款只会将对应财务记录从未结算变为已结算，并记录时间，不会修改库存、库存流水或采购/销售订单履约状态。
 
