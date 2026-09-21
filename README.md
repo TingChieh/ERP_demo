@@ -15,6 +15,7 @@
 - 待出库销售订单的确认出库、库存流水和应收账款生成
 - 应收账款和应付账款列表、整笔收款和整笔付款
 - DeepSeek AI ERP Assistant：库存查询、采购/销售订单预览、未收应收查询
+- 补货分析：低库存预警、补货建议和采购预览
 
 当前阶段暂不包含部分收款、部分付款、多次收款、多次付款、发票、对账、退款、退货、现金流和银行账户模块。
 
@@ -72,7 +73,22 @@ python app.py
 
 也可以直接复制项目根目录的 `.env.example` 为 `.env`，然后填写 `DEEPSEEK_API_KEY`；应用启动时会自动读取 `.env`。`.env` 已加入 `.gitignore`，不会提交 API Key。
 
-当前 AI 助手只支持库存查询、采购订单预览、销售订单预览和未收应收查询。采购或销售订单必须先由助手生成预览，再点击确认创建草稿；助手不会直接执行采购入库、销售出库、收款或付款。
+当前 AI 助手只支持库存查询、低库存分析、补货采购预览、采购订单预览、销售订单预览和未收应收查询。采购、销售或补货采购订单必须先由助手生成预览，再点击确认创建草稿；助手不会直接执行采购入库、销售出库、收款或付款。
+
+### 补货分析规则
+
+补货分析使用透明的 simple rule 和 7-day average；it is not machine learning and does not use seasonality or complex demand forecasting。促销活动和一次性大额订单可能影响结果。具体计算如下：
+
+```text
+sales_7d = completed sales quantities in the last 7 days
+pending_purchase_qty = quantities from pending_receipt purchase orders
+days_of_inventory = current_stock / avg_daily_sales_7d, or null when there are no recent sales
+target_stock = avg_daily_sales_7d * 14
+recommended_purchase_qty = max(0, ceil(target_stock - current_stock - pending_purchase_qty))
+low_stock = days_of_inventory < 7
+```
+
+其中目标库存覆盖 14 days。AI 会展示计算依据，并且只创建采购预览；必须经过 user confirmation before draft creation，才会创建采购草稿，不会自动提交、入库或执行其他采购履约动作。
 
 测试通过注入 Mock LLM，不需要 DeepSeek API Key，也不会访问网络。
 
