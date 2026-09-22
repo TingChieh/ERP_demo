@@ -138,6 +138,131 @@ def test_purchase_order_detail_returns_200(app, master_data):
     assert order.order_no.encode() in response.data
 
 
+def test_purchase_draft_edit_get_prefills_current_values(app, master_data):
+    client = app.test_client()
+    client.post(
+        "/purchase-orders/new",
+        data=purchase_form(
+            master_data["supplier_id"],
+            [(master_data["keyboard_id"], 2, "80")],
+        ),
+    )
+    with app.app_context():
+        order_id = PurchaseOrder.query.one().id
+
+    response = client.get(f"/purchase-orders/{order_id}/edit")
+
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert 'name="supplier_id"' in html
+    assert f'value="{master_data["keyboard_id"]}"' in html
+    assert 'value="2"' in html
+    assert 'value="80"' in html
+    assert "编辑采购订单" in html
+
+
+def test_purchase_draft_edit_replaces_supplier_lines_and_total_without_side_effects(
+    app, master_data
+):
+    client = app.test_client()
+    client.post(
+        "/purchase-orders/new",
+        data=purchase_form(
+            master_data["supplier_id"],
+            [(master_data["keyboard_id"], 2, "80")],
+        ),
+    )
+    with app.app_context():
+        order_id = PurchaseOrder.query.one().id
+
+    response = client.post(
+        f"/purchase-orders/{order_id}/edit",
+        data=purchase_form(
+            master_data["alternate_supplier_id"],
+            [(master_data["mouse_id"], 3, "35.50")],
+        ),
+    )
+
+    assert response.status_code == 302
+    with app.app_context():
+        order = db.session.get(PurchaseOrder, order_id)
+        assert order.supplier_id == master_data["alternate_supplier_id"]
+        assert order.total_amount == Decimal("106.50")
+        assert [(item.product_id, item.quantity, item.unit_price) for item in order.items] == [
+            (master_data["mouse_id"], 3, Decimal("35.50"))
+        ]
+        assert db.session.get(Product, master_data["keyboard_id"]).stock == 7
+        assert db.session.get(Product, master_data["mouse_id"]).stock == 3
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
+def test_purchase_draft_delete_removes_order_and_items(app, master_data):
+    client = app.test_client()
+    client.post(
+        "/purchase-orders/new",
+        data=purchase_form(
+            master_data["supplier_id"],
+            [(master_data["keyboard_id"], 2, "80")],
+        ),
+    )
+    with app.app_context():
+        order_id = PurchaseOrder.query.one().id
+
+    response = client.post(f"/purchase-orders/{order_id}/delete")
+
+    assert response.status_code == 302
+    with app.app_context():
+        assert PurchaseOrder.query.count() == 0
+        assert PurchaseOrderItem.query.count() == 0
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
+@pytest.mark.parametrize("status", ["pending_receipt", "completed"])
+def test_purchase_non_draft_edit_and_delete_return_400(app, master_data, status):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        order.status = status
+        db.session.commit()
+        order_id = order.id
+
+    client = app.test_client()
+    assert client.get(f"/purchase-orders/{order_id}/edit").status_code == 400
+    assert client.post(f"/purchase-orders/{order_id}/edit", data=purchase_form(
+        master_data["alternate_supplier_id"],
+        [(master_data["mouse_id"], 2, "35")],
+    )).status_code == 400
+    assert client.post(f"/purchase-orders/{order_id}/delete").status_code == 400
+
+
+@pytest.mark.parametrize("status", ["draft", "pending_receipt", "completed"])
+def test_purchase_detail_shows_edit_delete_controls_only_for_drafts(
+    app, master_data, status
+):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        order.status = status
+        db.session.commit()
+        order_id = order.id
+
+    html = app.test_client().get(f"/purchase-orders/{order_id}").get_data(as_text=True)
+
+    if status == "draft":
+        assert f'/purchase-orders/{order_id}/edit' in html
+        assert f'/purchase-orders/{order_id}/delete' in html
+        assert "确定删除这份采购草稿吗？" in html
+    else:
+        assert f'/purchase-orders/{order_id}/edit' not in html
+        assert f'/purchase-orders/{order_id}/delete' not in html
+
+
 def test_generated_purchase_order_numbers_are_unique(app, master_data):
     client = app.test_client()
     data = purchase_form(

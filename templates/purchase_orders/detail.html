@@ -49,9 +49,15 @@
 <section class="surface-card order-action-card mb-3">
   <div class="order-action-card__body">
     <h2 class="order-section-title">订单履约</h2>
-    <form method="post" action="{{ url_for('purchase_orders.submit_purchase_order', order_id=order.id) }}">
-      <button class="btn btn-primary" type="submit">提交采购订单</button>
-    </form>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-outline-secondary" href="{{ url_for('purchase_orders.edit_purchase_order', order_id=order.id) }}">编辑草稿</a>
+      <form method="post" action="{{ url_for('purchase_orders.submit_purchase_order', order_id=order.id) }}">
+        <button class="btn btn-primary" type="submit">提交采购订单</button>
+      </form>
+      <form method="post" action="{{ url_for('purchase_orders.delete_purchase_order', order_id=order.id) }}" onsubmit="return confirm('确定删除这份采购草稿吗？')">
+        <button class="btn btn-outline-danger" type="submit">删除草稿</button>
+      </form>
+    </div>
   </div>
 </section>
 {% elif order.status == "pending_receipt" %}

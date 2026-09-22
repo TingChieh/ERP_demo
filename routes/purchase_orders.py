@@ -11,7 +11,11 @@ from models import (
     Supplier,
     db,
 )
-from services.orders import create_purchase_order_draft
+from services.orders import (
+    create_purchase_order_draft,
+    delete_purchase_order_draft,
+    update_purchase_order_draft,
+)
 
 
 purchase_orders_bp = Blueprint(
@@ -36,6 +40,15 @@ def _empty_form_data(products):
         "selected_product_ids": [],
         "quantities": {},
         "unit_prices": {str(product.id): str(product.purchase_price) for product in products},
+    }
+
+
+def _form_data_from_order(order):
+    return {
+        "supplier_id": str(order.supplier_id),
+        "selected_product_ids": [str(item.product_id) for item in order.items],
+        "quantities": {str(item.product_id): str(item.quantity) for item in order.items},
+        "unit_prices": {str(item.product_id): str(item.unit_price) for item in order.items},
     }
 
 
@@ -171,7 +184,91 @@ def new_purchase_order():
         products=products,
         form_data=form_data,
         errors=errors,
+        edit_mode=False,
+        form_action=url_for("purchase_orders.new_purchase_order"),
+        page_title="新建采购订单",
+        page_description="订单创建后为草稿，不会增加库存或产生应付账款。",
+        submit_label="保存草稿",
+        cancel_url=url_for("purchase_orders.list_purchase_orders"),
     )
+
+
+@purchase_orders_bp.route("/<int:order_id>/edit", methods=["GET", "POST"])
+def edit_purchase_order(order_id):
+    order = db.get_or_404(PurchaseOrder, order_id)
+    if order.status != "draft":
+        return (
+            _render_purchase_order_detail(
+                order, error="只有草稿状态的采购订单可以编辑"
+            ),
+            400,
+        )
+
+    suppliers = Supplier.query.order_by(Supplier.name).all()
+    products = Product.query.order_by(Product.name).all()
+    form_data = _form_data_from_order(order)
+    errors = []
+
+    if request.method == "POST":
+        form_data = _read_form_data(request.form)
+        errors, supplier_id, lines, _ = _validate_form(form_data)
+        if not errors:
+            try:
+                update_purchase_order_draft(
+                    order,
+                    supplier_id,
+                    [
+                        {
+                            "product_id": line["product"].id,
+                            "quantity": line["quantity"],
+                            "unit_price": line["unit_price"],
+                        }
+                        for line in lines
+                    ],
+                )
+            except (SQLAlchemyError, ValueError):
+                db.session.rollback()
+                errors.append("采购订单保存失败，请检查数据后重试")
+            else:
+                return redirect(
+                    url_for("purchase_orders.purchase_order_detail", order_id=order.id)
+                )
+
+    return render_template(
+        "purchase_orders/form.html",
+        suppliers=suppliers,
+        products=products,
+        form_data=form_data,
+        errors=errors,
+        edit_mode=True,
+        form_action=url_for("purchase_orders.edit_purchase_order", order_id=order.id),
+        page_title="编辑采购订单",
+        page_description="编辑草稿不会增加库存或产生应付账款。",
+        submit_label="保存修改",
+        cancel_url=url_for("purchase_orders.purchase_order_detail", order_id=order.id),
+    )
+
+
+@purchase_orders_bp.post("/<int:order_id>/delete")
+def delete_purchase_order(order_id):
+    order = db.get_or_404(PurchaseOrder, order_id)
+    if order.status != "draft":
+        return (
+            _render_purchase_order_detail(
+                order, error="只有草稿状态的采购订单可以删除"
+            ),
+            400,
+        )
+
+    try:
+        delete_purchase_order_draft(order)
+    except (SQLAlchemyError, ValueError):
+        db.session.rollback()
+        return (
+            _render_purchase_order_detail(order, error="采购订单删除失败，请稍后重试"),
+            400,
+        )
+    return redirect(url_for("purchase_orders.list_purchase_orders"))
 
 
 @purchase_orders_bp.get("/<int:order_id>")

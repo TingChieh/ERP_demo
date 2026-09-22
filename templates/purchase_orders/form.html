@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}新建采购订单 - ERP Demo{% endblock %}
+{% block title %}{{ page_title }} - ERP Demo{% endblock %}
 
 {% block content %}
 <section class="page-header" data-page-type="order-form">
   <div>
     <p class="eyebrow">PURCHASING</p>
-    <h1>新建采购订单</h1>
-    <p class="page-description">订单创建后为草稿，不会增加库存或产生应付账款。</p>
+    <h1>{{ page_title }}</h1>
+    <p class="page-description">{{ page_description }}</p>
   </div>
 </section>
 
@@ -15,7 +15,7 @@
 <div class="alert alert-danger form-errors"><ul class="mb-0">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
 {% endif %}
 
-<form method="post">
+<form method="post" action="{{ form_action }}">
   <section class="surface-card order-form-card mb-3">
     <div class="order-form-card__body">
       <label class="form-label" for="supplier_id">供应商</label>
@@ -43,7 +43,7 @@
               <td>{{ product.name }}</td>
               <td>{{ product.sku }}</td>
               <td><input class="form-control" name="quantity_{{ product.id }}" type="number" min="1" step="1" value="{{ form_data.quantities.get(product_key, '') }}"></td>
-              <td><input class="form-control" name="unit_price_{{ product.id }}" type="number" min="0" step="0.01" value="{{ form_data.unit_prices.get(product_key, product.purchase_price) }}"></td>
+              <td><input class="form-control" name="unit_price_{{ product.id }}" type="number" min="0" step="0.01" value="{{ form_data.unit_prices.get(product_key, product.purchase_price)|string|replace('.00', '') }}"></td>
             </tr>
             {% endfor %}
           </tbody>
@@ -57,8 +57,8 @@
   </section>
 
   <div class="order-form-actions d-flex gap-2">
-    <button class="btn btn-primary" type="submit">保存草稿</button>
-    <a class="btn btn-outline-secondary" href="{{ url_for('purchase_orders.list_purchase_orders') }}">取消</a>
+    <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
+    <a class="btn btn-outline-secondary" href="{{ cancel_url }}">取消</a>
   </div>
 </form>
 {% endblock %}
