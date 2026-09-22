@@ -14,7 +14,11 @@ from models import (
     Supplier,
     db,
 )
-from services.orders import create_purchase_order_draft
+from services.orders import (
+    create_purchase_order_draft,
+    delete_purchase_order_draft,
+    update_purchase_order_draft,
+)
 
 
 @pytest.fixture()
@@ -293,3 +297,75 @@ def test_shared_purchase_service_rejects_duplicate_products_without_order(
             )
 
         assert PurchaseOrder.query.count() == 0
+
+
+def test_update_purchase_order_draft_replaces_lines_and_total(app, master_data):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        original_order_no = order.order_no
+        original_created_at = order.created_at
+
+        updated = update_purchase_order_draft(
+            order,
+            master_data["supplier_id"],
+            [{"product_id": master_data["mouse_id"], "quantity": 3, "unit_price": "35.50"}],
+        )
+
+        assert updated.status == "draft"
+        assert updated.order_no == original_order_no
+        assert updated.created_at == original_created_at
+        assert len(updated.items) == 1
+        assert updated.items[0].product_id == master_data["mouse_id"]
+        assert updated.total_amount == Decimal("106.50")
+        assert db.session.get(Product, master_data["keyboard_id"]).stock == 7
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
+def test_delete_purchase_order_draft_removes_order_and_items_without_side_effects(
+    app, master_data
+):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        order_id = order.id
+
+        delete_purchase_order_draft(order)
+
+        assert db.session.get(PurchaseOrder, order_id) is None
+        assert PurchaseOrderItem.query.count() == 0
+        assert db.session.get(Product, master_data["keyboard_id"]).stock == 7
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
+@pytest.mark.parametrize("status", ["pending_receipt", "completed"])
+def test_non_draft_purchase_order_cannot_be_updated_or_deleted(app, master_data, status):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        order.status = status
+        db.session.commit()
+        order_id = order.id
+
+        with pytest.raises(ValueError, match="草稿"):
+            update_purchase_order_draft(
+                order,
+                master_data["supplier_id"],
+                [{"product_id": master_data["mouse_id"], "quantity": 2, "unit_price": "35"}],
+            )
+        with pytest.raises(ValueError, match="草稿"):
+            delete_purchase_order_draft(order)
+
+        db.session.expire_all()
+        unchanged = db.session.get(PurchaseOrder, order_id)
+        assert unchanged.status == status
+        assert unchanged.total_amount == Decimal("80.00")
+        assert PurchaseOrderItem.query.count() == 1

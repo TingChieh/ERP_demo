@@ -211,3 +211,173 @@ def create_sales_order_draft(customer_id, lines, *, source="web"):
         },
     )
     return order
+
+
+def update_purchase_order_draft(order, supplier_id, lines, *, source="web"):
+    started = perf_counter()
+    if order.status != "draft":
+        raise ValueError("只有草稿订单可以编辑")
+
+    supplier = db.session.get(Supplier, supplier_id)
+    if supplier is None:
+        raise ValueError("供应商不存在")
+    normalized_lines = _normalize_lines(lines)
+    total_amount = sum(
+        (Decimal(line["quantity"]) * line["unit_price"] for line in normalized_lines),
+        Decimal("0"),
+    )
+    order_no = order.order_no
+
+    try:
+        order.supplier_id = supplier.id
+        order.total_amount = total_amount
+        order.items.clear()
+        for line in normalized_lines:
+            order.items.append(
+                PurchaseOrderItem(
+                    product_id=line["product_id"],
+                    quantity=line["quantity"],
+                    unit_price=line["unit_price"],
+                )
+            )
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        record_database_operation(
+            source=source,
+            action="update_purchase_order_draft",
+            entity_type="PurchaseOrder",
+            entity_id=order_no,
+            status="error",
+            duration_ms=(perf_counter() - started) * 1000,
+            error_message="数据库事务失败",
+        )
+        raise
+
+    record_database_operation(
+        source=source,
+        action="update_purchase_order_draft",
+        entity_type="PurchaseOrder",
+        entity_id=order_no,
+        status="success",
+        duration_ms=(perf_counter() - started) * 1000,
+        detail={"line_count": len(normalized_lines), "total_amount": str(total_amount)},
+    )
+    return order
+
+
+def delete_purchase_order_draft(order, *, source="web"):
+    started = perf_counter()
+    if order.status != "draft":
+        raise ValueError("只有草稿订单可以删除")
+    order_no = order.order_no
+
+    try:
+        db.session.delete(order)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        record_database_operation(
+            source=source,
+            action="delete_purchase_order_draft",
+            entity_type="PurchaseOrder",
+            entity_id=order_no,
+            status="error",
+            duration_ms=(perf_counter() - started) * 1000,
+            error_message="数据库事务失败",
+        )
+        raise
+
+    record_database_operation(
+        source=source,
+        action="delete_purchase_order_draft",
+        entity_type="PurchaseOrder",
+        entity_id=order_no,
+        status="success",
+        duration_ms=(perf_counter() - started) * 1000,
+    )
+
+
+def update_sales_order_draft(order, customer_id, lines, *, source="web"):
+    started = perf_counter()
+    if order.status != "draft":
+        raise ValueError("只有草稿订单可以编辑")
+
+    customer = db.session.get(Customer, customer_id)
+    if customer is None:
+        raise ValueError("客户不存在")
+    normalized_lines = _normalize_lines(lines)
+    total_amount = sum(
+        (Decimal(line["quantity"]) * line["unit_price"] for line in normalized_lines),
+        Decimal("0"),
+    )
+    order_no = order.order_no
+
+    try:
+        order.customer_id = customer.id
+        order.total_amount = total_amount
+        order.items.clear()
+        for line in normalized_lines:
+            order.items.append(
+                SalesOrderItem(
+                    product_id=line["product_id"],
+                    quantity=line["quantity"],
+                    unit_price=line["unit_price"],
+                )
+            )
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        record_database_operation(
+            source=source,
+            action="update_sales_order_draft",
+            entity_type="SalesOrder",
+            entity_id=order_no,
+            status="error",
+            duration_ms=(perf_counter() - started) * 1000,
+            error_message="数据库事务失败",
+        )
+        raise
+
+    record_database_operation(
+        source=source,
+        action="update_sales_order_draft",
+        entity_type="SalesOrder",
+        entity_id=order_no,
+        status="success",
+        duration_ms=(perf_counter() - started) * 1000,
+        detail={"line_count": len(normalized_lines), "total_amount": str(total_amount)},
+    )
+    return order
+
+
+def delete_sales_order_draft(order, *, source="web"):
+    started = perf_counter()
+    if order.status != "draft":
+        raise ValueError("只有草稿订单可以删除")
+    order_no = order.order_no
+
+    try:
+        db.session.delete(order)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        record_database_operation(
+            source=source,
+            action="delete_sales_order_draft",
+            entity_type="SalesOrder",
+            entity_id=order_no,
+            status="error",
+            duration_ms=(perf_counter() - started) * 1000,
+            error_message="数据库事务失败",
+        )
+        raise
+
+    record_database_operation(
+        source=source,
+        action="delete_sales_order_draft",
+        entity_type="SalesOrder",
+        entity_id=order_no,
+        status="success",
+        duration_ms=(perf_counter() - started) * 1000,
+    )
