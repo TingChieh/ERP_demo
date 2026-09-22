@@ -164,6 +164,9 @@ def test_inventory_transactions_show_type_quantity_balance_and_order(app):
 
     assert "入库" in body
     assert "出库" in body
+    assert "10" in body
+    assert "2" in body
+    assert "8" in body
     assert "PO-COMPLETED" in body
     assert "SO-COMPLETED" in body
     assert "变更后库存" in body
