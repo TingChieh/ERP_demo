@@ -210,8 +210,12 @@ def test_theme_tokens_keep_text_contrast_readable():
 def test_business_forms_keep_existing_post_contracts(app):
     client = app.test_client()
 
-    for path in ("/products/new", "/customers/new", "/suppliers/new", "/purchase-orders/new"):
+    for path in ("/products/new", "/customers/new", "/suppliers/new"):
         assert_post_form(client.get(path).get_data(as_text=True))
+    assert_post_form(
+        client.get("/purchase-orders/new").get_data(as_text=True),
+        "/purchase-orders/new",
+    )
 
     with app.app_context():
         supplier = Supplier(name="QA Supplier", phone="")
@@ -274,17 +278,40 @@ def test_business_forms_keep_existing_post_contracts(app):
         client.get(f"/purchase-orders/{purchase_order_id}").get_data(as_text=True),
         f"/purchase-orders/{purchase_order_id}/submit",
     )
+    purchase_draft_html = client.get(
+        f"/purchase-orders/{purchase_order_id}"
+    ).get_data(as_text=True)
+    assert f"/purchase-orders/{purchase_order_id}/edit" in purchase_draft_html
+    assert f"/purchase-orders/{purchase_order_id}/delete" in purchase_draft_html
+    assert "确定删除这份采购草稿吗？" in purchase_draft_html
+    pending_purchase_html = client.get(
+        f"/purchase-orders/{pending_purchase_order_id}"
+    ).get_data(as_text=True)
+    assert f"/purchase-orders/{pending_purchase_order_id}/edit" not in pending_purchase_html
+    assert f"/purchase-orders/{pending_purchase_order_id}/delete" not in pending_purchase_html
     assert_post_form(
         client.get(f"/purchase-orders/{pending_purchase_order_id}").get_data(as_text=True),
         f"/purchase-orders/{pending_purchase_order_id}/receive",
     )
     assert_post_form(
-        client.get("/sales-orders/new").get_data(as_text=True)
+        client.get("/sales-orders/new").get_data(as_text=True),
+        "/sales-orders/new",
     )
     assert_post_form(
         client.get(f"/sales-orders/{draft_sales_order_id}").get_data(as_text=True),
         f"/sales-orders/{draft_sales_order_id}/submit",
     )
+    sales_draft_html = client.get(
+        f"/sales-orders/{draft_sales_order_id}"
+    ).get_data(as_text=True)
+    assert f"/sales-orders/{draft_sales_order_id}/edit" in sales_draft_html
+    assert f"/sales-orders/{draft_sales_order_id}/delete" in sales_draft_html
+    assert "确定删除这份销售草稿吗？" in sales_draft_html
+    pending_sales_html = client.get(
+        f"/sales-orders/{pending_sales_order_id}"
+    ).get_data(as_text=True)
+    assert f"/sales-orders/{pending_sales_order_id}/edit" not in pending_sales_html
+    assert f"/sales-orders/{pending_sales_order_id}/delete" not in pending_sales_html
     assert_post_form(
         client.get(f"/sales-orders/{pending_sales_order_id}").get_data(as_text=True),
         f"/sales-orders/{pending_sales_order_id}/ship",

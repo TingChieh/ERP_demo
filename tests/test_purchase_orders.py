@@ -171,6 +171,7 @@ def test_purchase_draft_edit_get_prefills_current_values(app, master_data):
         'min="0" step="0.01" value="80"'
         in html
     )
+    assert f'<form method="post" action="/purchase-orders/{order_id}/edit">' in html
     assert "编辑采购订单" in html
 
 
