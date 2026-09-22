@@ -9,7 +9,7 @@
     <h1>采购入库</h1>
     <p class="page-description">处理待入库的采购订单。</p>
   </div>
-  <div class="d-flex gap-2">
+  <div class="inventory-toolbar">
     <a class="btn btn-outline-secondary" href="{{ url_for('purchase_orders.list_purchase_orders') }}">采购订单</a>
     <a class="btn btn-primary" href="{{ url_for('purchase_orders.new_purchase_order') }}">新建采购订单</a>
   </div>
@@ -30,7 +30,7 @@
           <td><a class="btn btn-outline-secondary btn-sm" href="{{ url_for('purchase_orders.purchase_order_detail', order_id=order.id) }}">处理入库</a></td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="text-center text-muted py-4">暂无待入库采购订单</td></tr>
+        <tr><td colspan="6" class="text-center text-muted py-4 inventory-empty">暂无待入库采购订单</td></tr>
         {% endfor %}
       </tbody>
     </table>

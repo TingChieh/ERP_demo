@@ -9,7 +9,7 @@
     <h1>库存流水</h1>
     <p class="page-description">追踪每笔库存变更及其关联订单。</p>
   </div>
-  <div class="d-flex gap-2">
+  <div class="inventory-toolbar">
     <a class="btn btn-outline-secondary" href="{{ url_for('inventory.current_inventory') }}">当前库存</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('inventory.purchase_receipts') }}">采购入库</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('inventory.sales_shipments') }}">销售出库</a>
@@ -32,7 +32,7 @@
           <td>{{ transaction.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="text-center text-muted py-4">暂无库存流水记录</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-4 inventory-empty">暂无库存流水记录</td></tr>
         {% endfor %}
       </tbody>
     </table>

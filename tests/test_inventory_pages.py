@@ -128,6 +128,22 @@ def test_inventory_pages_render_empty_states(app, path, endpoint, title, empty_t
     assert empty_text in body
 
 
+@pytest.mark.parametrize(
+    "path,empty_text",
+    [
+        ("/purchase-receipts", "暂无待入库采购订单"),
+        ("/sales-shipments", "暂无待出库销售订单"),
+        ("/inventory", "暂无商品库存数据"),
+        ("/inventory/transactions", "暂无库存流水记录"),
+    ],
+)
+def test_inventory_pages_apply_toolbar_and_empty_state_hooks(app, path, empty_text):
+    body = app.test_client().get(path).get_data(as_text=True)
+
+    assert 'class="inventory-toolbar"' in body
+    assert f'inventory-empty">{empty_text}' in body
+
+
 def test_purchase_receipts_only_show_pending_orders_and_link_to_detail(app):
     ids = seed_inventory_data(app)
     body = app.test_client().get("/purchase-receipts").get_data(as_text=True)

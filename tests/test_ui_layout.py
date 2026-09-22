@@ -227,6 +227,13 @@ def test_narrow_tables_keep_columns_readable_with_horizontal_scrolling():
     assert ".metric-grid-primary, .metric-grid-finance { grid-template-columns: repeat(2, minmax(0, 1fr)); }" in css
 
 
+def test_inventory_toolbar_stacks_actions_on_narrow_screens():
+    css = Path("static/css/style.css").read_text(encoding="utf-8")
+
+    assert ".inventory-toolbar { align-items: stretch; flex-direction: column; }" in css
+    assert ".inventory-toolbar .btn { width: 100%; }" in css
+
+
 def test_theme_tokens_keep_text_contrast_readable():
     css = Path("static/css/style.css").read_text(encoding="utf-8")
 
