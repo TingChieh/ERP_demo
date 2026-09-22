@@ -512,6 +512,64 @@ def test_update_sales_order_draft_replaces_lines_and_total(app, master_data):
         ).count() == 1
 
 
+def test_update_sales_order_draft_keeps_and_replaces_lines(app, master_data):
+    with app.app_context():
+        order = create_sales_order_draft(
+            master_data["customer_id"],
+            [
+                {
+                    "product_id": master_data["keyboard_id"],
+                    "quantity": 1,
+                    "unit_price": "120",
+                },
+                {
+                    "product_id": master_data["mouse_id"],
+                    "quantity": 2,
+                    "unit_price": "65",
+                },
+            ],
+        )
+        monitor = Product(
+            name="显示器", sku="MN001", purchase_price=500, sale_price=800, stock=4
+        )
+        db.session.add(monitor)
+        db.session.commit()
+        original_order_no = order.order_no
+        original_created_at = order.created_at
+
+        updated = update_sales_order_draft(
+            order,
+            master_data["alternate_customer_id"],
+            [
+                {
+                    "product_id": master_data["keyboard_id"],
+                    "quantity": 3,
+                    "unit_price": "119.50",
+                },
+                {"product_id": monitor.id, "quantity": 1, "unit_price": "800"},
+            ],
+        )
+
+        assert updated.status == "draft"
+        assert updated.order_no == original_order_no
+        assert updated.created_at == original_created_at
+        assert updated.customer_id == master_data["alternate_customer_id"]
+        assert updated.total_amount == Decimal("1158.50")
+        assert sorted(
+            (item.product_id, item.quantity, item.unit_price) for item in updated.items
+        ) == sorted(
+            [
+                (master_data["keyboard_id"], 3, Decimal("119.50")),
+                (monitor.id, 1, Decimal("800")),
+            ]
+        )
+        assert db.session.get(Product, master_data["keyboard_id"]).stock == 5
+        assert db.session.get(Product, master_data["mouse_id"]).stock == 20
+        assert db.session.get(Product, monitor.id).stock == 4
+        assert InventoryTransaction.query.count() == 0
+        assert AccountReceivable.query.count() == 0
+
+
 def test_delete_sales_order_draft_removes_order_and_items_without_side_effects(
     app, master_data
 ):

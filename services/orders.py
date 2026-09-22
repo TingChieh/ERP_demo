@@ -232,6 +232,7 @@ def update_purchase_order_draft(order, supplier_id, lines, *, source="web"):
         order.supplier_id = supplier.id
         order.total_amount = total_amount
         order.items.clear()
+        db.session.flush()
         for line in normalized_lines:
             order.items.append(
                 PurchaseOrderItem(
@@ -317,6 +318,7 @@ def update_sales_order_draft(order, customer_id, lines, *, source="web"):
         order.customer_id = customer.id
         order.total_amount = total_amount
         order.items.clear()
+        db.session.flush()
         for line in normalized_lines:
             order.items.append(
                 SalesOrderItem(
