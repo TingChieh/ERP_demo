@@ -126,5 +126,7 @@ Windows PowerShell 激活虚拟环境的命令为：
 ## 测试
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
+
+在 Codex 管理的 worktree 中，裸 `pytest` 启动器可能无法将仓库根目录加入导入路径；请使用以上命令。

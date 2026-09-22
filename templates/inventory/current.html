@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}当前库存 - ERP Demo{% endblock %}
+
+{% block content %}
+<section class="page-header" data-page-type="inventory-list">
+  <div>
+    <p class="eyebrow">INVENTORY</p>
+    <h1>当前库存</h1>
+    <p class="page-description">查看商品的当前可用库存。</p>
+  </div>
+  <div class="inventory-toolbar">
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.inventory_transactions') }}">库存流水</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.purchase_receipts') }}">采购入库</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.sales_shipments') }}">销售出库</a>
+  </div>
+</section>
+
+<section class="surface-card table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead><tr><th>商品</th><th>SKU</th><th>当前库存</th><th>库存状态</th></tr></thead>
+      <tbody>
+        {% for product in products %}
+        <tr>
+          <td>{{ product.name }}</td>
+          <td>{{ product.sku }}</td>
+          <td><span class="inventory-stock-value">{{ product.stock }}</span></td>
+          <td>
+            {% if product.stock > 0 %}
+            <span class="status-pill status-pill--success">有库存</span>
+            {% else %}
+            <span class="status-pill status-pill--info">暂无库存</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted py-4 inventory-empty">暂无商品库存数据</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}销售出库 - ERP Demo{% endblock %}
+
+{% block content %}
+<section class="page-header" data-page-type="inventory-queue">
+  <div>
+    <p class="eyebrow">WAREHOUSE</p>
+    <h1>销售出库</h1>
+    <p class="page-description">处理待出库的销售订单。</p>
+  </div>
+  <div class="inventory-toolbar">
+    <a class="btn btn-outline-secondary" href="{{ url_for('sales_orders.list_sales_orders') }}">销售订单</a>
+    <a class="btn btn-primary" href="{{ url_for('sales_orders.new_sales_order') }}">新建销售订单</a>
+  </div>
+</section>
+
+<section class="surface-card table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead><tr><th>订单号</th><th>客户</th><th>创建时间</th><th>状态</th><th>总金额</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td>{{ order.order_no }}</td>
+          <td>{{ order.customer.name }}</td>
+          <td>{{ order.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td><span class="status-pill status-pill--{{ order.status }}">{{ status_labels[order.status] }}</span></td>
+          <td>¥ {{ "%.2f"|format(order.total_amount) }}</td>
+          <td><a class="btn btn-outline-secondary btn-sm" href="{{ url_for('sales_orders.sales_order_detail', order_id=order.id) }}">处理出库</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4 inventory-empty">暂无待出库销售订单</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
