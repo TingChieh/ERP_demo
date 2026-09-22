@@ -81,6 +81,10 @@ def app(tmp_path: Path):
         ("/payables", "settlements.list_payables"),
         ("/logs/database", "logs.database_logs"),
         ("/logs/api", "logs.api_logs"),
+        ("/purchase-receipts", "inventory.purchase_receipts"),
+        ("/sales-shipments", "inventory.sales_shipments"),
+        ("/inventory", "inventory.current_inventory"),
+        ("/inventory/transactions", "inventory.inventory_transactions"),
     ],
 )
 def test_primary_pages_render_the_shared_shell(app, path, endpoint):
@@ -102,6 +106,31 @@ def test_current_page_is_the_only_active_navigation_target(app):
     parser.feed(body)
     assert len(parser.active_links) == 2
     assert {link["href"] for link in parser.active_links} == {"/products/"}
+
+
+@pytest.mark.parametrize(
+    "path,nav_endpoint,href",
+    [
+        ("/purchase-receipts", "inventory.purchase_receipts", "/purchase-receipts"),
+        ("/sales-shipments", "inventory.sales_shipments", "/sales-shipments"),
+        ("/inventory", "inventory.current_inventory", "/inventory"),
+        (
+            "/inventory/transactions",
+            "inventory.inventory_transactions",
+            "/inventory/transactions",
+        ),
+    ],
+)
+def test_inventory_page_is_active_in_desktop_and_mobile_navigation(
+    app, path, nav_endpoint, href
+):
+    body = app.test_client().get(path).get_data(as_text=True)
+    parser = ActiveNavTags()
+    parser.feed(body)
+
+    assert len(parser.active_links) == 2
+    assert all(link["href"] == href for link in parser.active_links)
+    assert all(link["data-nav-endpoint"] == nav_endpoint for link in parser.active_links)
 
 
 def test_dashboard_keeps_all_existing_metric_values(app):
