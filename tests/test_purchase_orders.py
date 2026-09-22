@@ -2,11 +2,13 @@ from pathlib import Path
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 
 from app import create_app
 from models import (
     AccountPayable,
+    DatabaseOperationLog,
     InventoryTransaction,
     Product,
     PurchaseOrder,
@@ -44,16 +46,18 @@ def app(tmp_path: Path):
 def master_data(app):
     with app.app_context():
         supplier = Supplier(name="南京键盘供应商", phone="")
+        alternate_supplier = Supplier(name="上海鼠标供应商", phone="")
         keyboard = Product(
             name="机械键盘", sku="KB001", purchase_price=80, sale_price=120, stock=7
         )
         mouse = Product(
             name="鼠标", sku="MS001", purchase_price=40, sale_price=69, stock=3
         )
-        db.session.add_all([supplier, keyboard, mouse])
+        db.session.add_all([supplier, alternate_supplier, keyboard, mouse])
         db.session.commit()
         return {
             "supplier_id": supplier.id,
+            "alternate_supplier_id": alternate_supplier.id,
             "keyboard_id": keyboard.id,
             "mouse_id": mouse.id,
         }
@@ -307,22 +311,28 @@ def test_update_purchase_order_draft_replaces_lines_and_total(app, master_data):
         )
         original_order_no = order.order_no
         original_created_at = order.created_at
+        original_supplier_id = order.supplier_id
 
         updated = update_purchase_order_draft(
             order,
-            master_data["supplier_id"],
+            master_data["alternate_supplier_id"],
             [{"product_id": master_data["mouse_id"], "quantity": 3, "unit_price": "35.50"}],
         )
 
         assert updated.status == "draft"
         assert updated.order_no == original_order_no
         assert updated.created_at == original_created_at
+        assert updated.supplier_id == master_data["alternate_supplier_id"]
+        assert updated.supplier_id != original_supplier_id
         assert len(updated.items) == 1
         assert updated.items[0].product_id == master_data["mouse_id"]
         assert updated.total_amount == Decimal("106.50")
         assert db.session.get(Product, master_data["keyboard_id"]).stock == 7
         assert InventoryTransaction.query.count() == 0
         assert AccountPayable.query.count() == 0
+        assert DatabaseOperationLog.query.filter_by(
+            action="update_purchase_order_draft", status="success"
+        ).count() == 1
 
 
 def test_delete_purchase_order_draft_removes_order_and_items_without_side_effects(
@@ -345,7 +355,9 @@ def test_delete_purchase_order_draft_removes_order_and_items_without_side_effect
 
 
 @pytest.mark.parametrize("status", ["pending_receipt", "completed"])
-def test_non_draft_purchase_order_cannot_be_updated_or_deleted(app, master_data, status):
+def test_update_purchase_order_draft_rejects_non_draft_without_mutation(
+    app, master_data, status
+):
     with app.app_context():
         order = create_purchase_order_draft(
             master_data["supplier_id"],
@@ -354,11 +366,16 @@ def test_non_draft_purchase_order_cannot_be_updated_or_deleted(app, master_data,
         order.status = status
         db.session.commit()
         order_id = order.id
+        original_created_at = order.created_at
+        original_order_no = order.order_no
+        original_supplier_id = order.supplier_id
+        original_item = (order.items[0].product_id, order.items[0].quantity, order.items[0].unit_price)
+        original_stock = db.session.get(Product, master_data["keyboard_id"]).stock
 
         with pytest.raises(ValueError, match="草稿"):
             update_purchase_order_draft(
                 order,
-                master_data["supplier_id"],
+                master_data["alternate_supplier_id"],
                 [{"product_id": master_data["mouse_id"], "quantity": 2, "unit_price": "35"}],
             )
         with pytest.raises(ValueError, match="草稿"):
@@ -367,5 +384,99 @@ def test_non_draft_purchase_order_cannot_be_updated_or_deleted(app, master_data,
         db.session.expire_all()
         unchanged = db.session.get(PurchaseOrder, order_id)
         assert unchanged.status == status
+        assert unchanged.supplier_id == original_supplier_id
+        assert unchanged.order_no == original_order_no
+        assert unchanged.created_at == original_created_at
         assert unchanged.total_amount == Decimal("80.00")
         assert PurchaseOrderItem.query.count() == 1
+        assert (unchanged.items[0].product_id, unchanged.items[0].quantity, unchanged.items[0].unit_price) == original_item
+        assert db.session.get(Product, master_data["keyboard_id"]).stock == original_stock
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
+def test_update_purchase_order_draft_rolls_back_database_error_and_logs_action(
+    app, master_data, monkeypatch
+):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        order_id = order.id
+        original_commit = db.session.commit
+        commit_calls = 0
+
+        def fail_once_commit():
+            nonlocal commit_calls
+            commit_calls += 1
+            if commit_calls == 1:
+                raise SQLAlchemyError("forced failure")
+            return original_commit()
+
+        rollback_calls = 0
+        original_rollback = db.session.rollback
+
+        def tracked_rollback():
+            nonlocal rollback_calls
+            rollback_calls += 1
+            return original_rollback()
+
+        monkeypatch.setattr(db.session, "commit", fail_once_commit)
+        monkeypatch.setattr(db.session, "rollback", tracked_rollback)
+
+        with pytest.raises(SQLAlchemyError, match="forced failure"):
+            update_purchase_order_draft(
+                order,
+                master_data["alternate_supplier_id"],
+                [{"product_id": master_data["mouse_id"], "quantity": 3, "unit_price": "35.50"}],
+            )
+
+        assert rollback_calls == 1
+        unchanged = db.session.get(PurchaseOrder, order_id)
+        assert unchanged.supplier_id == master_data["supplier_id"]
+        assert unchanged.items[0].product_id == master_data["keyboard_id"]
+        assert DatabaseOperationLog.query.filter_by(
+            action="update_purchase_order_draft", status="error"
+        ).count() == 1
+
+
+def test_delete_purchase_order_draft_rolls_back_database_error_and_logs_action(
+    app, master_data, monkeypatch
+):
+    with app.app_context():
+        order = create_purchase_order_draft(
+            master_data["supplier_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "80"}],
+        )
+        order_id = order.id
+        original_commit = db.session.commit
+        commit_calls = 0
+
+        def fail_once_commit():
+            nonlocal commit_calls
+            commit_calls += 1
+            if commit_calls == 1:
+                raise SQLAlchemyError("forced failure")
+            return original_commit()
+
+        rollback_calls = 0
+        original_rollback = db.session.rollback
+
+        def tracked_rollback():
+            nonlocal rollback_calls
+            rollback_calls += 1
+            return original_rollback()
+
+        monkeypatch.setattr(db.session, "commit", fail_once_commit)
+        monkeypatch.setattr(db.session, "rollback", tracked_rollback)
+
+        with pytest.raises(SQLAlchemyError, match="forced failure"):
+            delete_purchase_order_draft(order)
+
+        assert rollback_calls == 1
+        assert db.session.get(PurchaseOrder, order_id) is not None
+        assert PurchaseOrderItem.query.count() == 1
+        assert DatabaseOperationLog.query.filter_by(
+            action="delete_purchase_order_draft", status="error"
+        ).count() == 1
