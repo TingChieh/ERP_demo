@@ -14,6 +14,7 @@ from models import (
     db,
 )
 from routes.customers import customers_bp
+from routes.inventory import inventory_bp
 from routes.assistant import assistant_bp
 from routes.products import products_bp
 from routes.purchase_orders import purchase_orders_bp
@@ -51,6 +52,7 @@ def create_app(test_config=None):
     app.register_blueprint(customers_bp)
     app.register_blueprint(assistant_bp)
     app.register_blueprint(logs_bp)
+    app.register_blueprint(inventory_bp)
 
     @app.get("/")
     def dashboard():
