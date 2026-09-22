@@ -228,6 +228,12 @@ def test_business_forms_keep_existing_post_contracts(app):
         purchase_order = PurchaseOrder(
             order_no="PO-QA", supplier_id=supplier.id, status="draft", total_amount=40
         )
+        completed_purchase_order = PurchaseOrder(
+            order_no="PO-QA-COMPLETED",
+            supplier_id=supplier.id,
+            status="completed",
+            total_amount=40,
+        )
         pending_purchase_order = PurchaseOrder(
             order_no="PO-QA-PENDING",
             supplier_id=supplier.id,
@@ -247,7 +253,14 @@ def test_business_forms_keep_existing_post_contracts(app):
             total_amount=69,
         )
         db.session.add_all(
-            [purchase_order, pending_purchase_order, sales_order, draft_sales_order, pending_sales_order]
+            [
+                purchase_order,
+                completed_purchase_order,
+                pending_purchase_order,
+                sales_order,
+                draft_sales_order,
+                pending_sales_order,
+            ]
         )
         db.session.flush()
         receivable = AccountReceivable(
@@ -265,9 +278,11 @@ def test_business_forms_keep_existing_post_contracts(app):
         db.session.add_all([receivable, payable])
         db.session.commit()
         purchase_order_id = purchase_order.id
+        completed_purchase_order_id = completed_purchase_order.id
         pending_purchase_order_id = pending_purchase_order.id
         receivable_id = receivable.id
         payable_id = payable.id
+        completed_sales_order_id = sales_order.id
         draft_sales_order_id = draft_sales_order.id
         pending_sales_order_id = pending_sales_order.id
         product_id = product.id
@@ -289,6 +304,11 @@ def test_business_forms_keep_existing_post_contracts(app):
     ).get_data(as_text=True)
     assert f"/purchase-orders/{pending_purchase_order_id}/edit" not in pending_purchase_html
     assert f"/purchase-orders/{pending_purchase_order_id}/delete" not in pending_purchase_html
+    completed_purchase_html = client.get(
+        f"/purchase-orders/{completed_purchase_order_id}"
+    ).get_data(as_text=True)
+    assert f"/purchase-orders/{completed_purchase_order_id}/edit" not in completed_purchase_html
+    assert f"/purchase-orders/{completed_purchase_order_id}/delete" not in completed_purchase_html
     assert_post_form(
         client.get(f"/purchase-orders/{pending_purchase_order_id}").get_data(as_text=True),
         f"/purchase-orders/{pending_purchase_order_id}/receive",
@@ -312,6 +332,11 @@ def test_business_forms_keep_existing_post_contracts(app):
     ).get_data(as_text=True)
     assert f"/sales-orders/{pending_sales_order_id}/edit" not in pending_sales_html
     assert f"/sales-orders/{pending_sales_order_id}/delete" not in pending_sales_html
+    completed_sales_html = client.get(
+        f"/sales-orders/{completed_sales_order_id}"
+    ).get_data(as_text=True)
+    assert f"/sales-orders/{completed_sales_order_id}/edit" not in completed_sales_html
+    assert f"/sales-orders/{completed_sales_order_id}/delete" not in completed_sales_html
     assert_post_form(
         client.get(f"/sales-orders/{pending_sales_order_id}").get_data(as_text=True),
         f"/sales-orders/{pending_sales_order_id}/ship",
