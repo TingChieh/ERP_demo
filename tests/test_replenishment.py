@@ -112,6 +112,36 @@ def test_get_sales_quantity_excludes_draft_and_pending_shipment_orders(app, data
         assert get_sales_quantity(data["product_id"], 30, as_of=AS_OF) == 47
 
 
+@pytest.mark.parametrize("days,existing_sales", [(7, 35), (30, 47)])
+def test_sales_window_includes_as_of_and_excludes_future_orders(
+    app, data, days, existing_sales
+):
+    with app.app_context():
+        for label, created_at, quantity in (
+            ("CUTOFF", AS_OF - timedelta(days=days), 3),
+            ("AS-OF", AS_OF, 2),
+            ("FUTURE", AS_OF + timedelta(microseconds=1), 100),
+        ):
+            order = SalesOrder(
+                order_no=f"SO-{label}",
+                customer_id=data["customer_id"],
+                status="completed",
+                created_at=created_at,
+            )
+            order.items.append(
+                SalesOrderItem(
+                    product_id=data["product_id"], quantity=quantity, unit_price=80
+                )
+            )
+            db.session.add(order)
+        db.session.commit()
+
+        actual_sales = get_sales_quantity(data["product_id"], days, as_of=AS_OF)
+        assert actual_sales == existing_sales + 5
+        analysis = analyze_replenishment(data["product_id"], as_of=AS_OF)
+        assert analysis[f"sales_{days}d"] == existing_sales + 5
+
+
 def test_pending_purchase_quantity_only_counts_pending_receipt(app, data):
     with app.app_context():
         for order_no, status, quantity in (
@@ -189,12 +219,76 @@ def test_analysis_preserves_latest_zero_purchase_price(app, data):
     assert analysis["purchase_price"] == "0.00"
 
 
+@pytest.mark.parametrize(
+    "history_price,price,source",
+    [
+        (78, "78.00", "last_purchase_price"),
+        (0, "0.00", "last_purchase_price"),
+        (None, "50.00", "product_purchase_price"),
+    ],
+)
+def test_analysis_resolves_purchase_price_and_source(
+    app, data, history_price, price, source
+):
+    with app.app_context():
+        if history_price is not None:
+            order = PurchaseOrder(
+                order_no="PO-PRICE-SOURCE",
+                supplier_id=data["supplier_id"],
+                status="completed",
+                created_at=AS_OF - timedelta(days=1),
+            )
+            order.items.append(
+                PurchaseOrderItem(
+                    product_id=data["product_id"], quantity=1, unit_price=history_price
+                )
+            )
+            db.session.add(order)
+            db.session.commit()
+
+        analysis = analyze_replenishment(data["product_id"], as_of=AS_OF)
+
+    assert analysis["purchase_price"] == price
+    assert analysis["price_source"] == source
+
+
 def test_days_of_inventory_uses_recent_average(app):
     assert calculate_days_of_inventory(20, Decimal("5")) == Decimal("4.00")
 
 
 def test_days_of_inventory_is_none_without_recent_sales(app):
     assert calculate_days_of_inventory(0, Decimal("0")) is None
+
+
+@pytest.mark.parametrize(
+    "sales,stock,coverage,low_stock,recommended",
+    [
+        (2, 2, 7, False, 2),
+        (2, 1, 3.5, True, 3),
+        (2, 3, 10.5, False, 1),
+        (1, 1, 7, False, 1),
+        (1407, 1406, 7, True, 1408),
+        (1407, 1407, 7, False, 1407),
+        (1407, 1408, 7, False, 1406),
+    ],
+)
+def test_analysis_uses_exact_fractional_sales_for_business_decisions(
+    app, data, sales, stock, coverage, low_stock, recommended
+):
+    with app.app_context():
+        product = db.session.get(Product, data["product_id"])
+        product.stock = stock
+        order = SalesOrder.query.filter_by(order_no="SO-COMPLETED-7D").one()
+        order.items[0].quantity = sales
+        db.session.commit()
+
+        analysis = analyze_replenishment(product.id, as_of=AS_OF)
+        warnings = get_low_stock_analyses(as_of=AS_OF)
+
+    assert analysis["days_of_inventory"] == coverage
+    assert analysis["low_stock"] is low_stock
+    assert analysis["recommended_purchase_qty"] == recommended
+    assert (data["product_id"] in {item["product_id"] for item in warnings}) is low_stock
 
 
 def test_recommended_purchase_qty_uses_stock_and_pending_receipts(app):
@@ -264,6 +358,7 @@ def test_analyze_replenishment_returns_dashboard_metrics(app, analysis_data):
         "default_purchase_price": "60.00",
         "last_purchase_price": "60.00",
         "purchase_price": "60.00",
+        "price_source": "last_purchase_price",
         "low_stock": True,
     }
 

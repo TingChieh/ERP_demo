@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from fractions import Fraction
 from math import ceil
 
 from sqlalchemy import func
@@ -24,6 +25,7 @@ def get_sales_quantity(product_id, days, as_of=None):
             SalesOrderItem.product_id == product_id,
             SalesOrder.status == "completed",
             SalesOrder.created_at >= cutoff,
+            SalesOrder.created_at <= as_of,
         )
         .scalar()
     )
@@ -59,19 +61,20 @@ def get_last_purchase_price(product_id):
 
 
 def calculate_days_of_inventory(current_stock, avg_daily_sales_7d):
-    average = Decimal(avg_daily_sales_7d)
+    stock = Fraction(current_stock)
+    average = Fraction(avg_daily_sales_7d)
     if average <= 0:
         return None
-    return (Decimal(current_stock) / average).quantize(Decimal("0.01"))
+    return stock / average
 
 
 def calculate_recommended_purchase_qty(
     current_stock, pending_purchase_qty, avg_daily_sales_7d, target_days=14
 ):
     target = (
-        Decimal(avg_daily_sales_7d) * Decimal(target_days)
-        - Decimal(current_stock)
-        - Decimal(pending_purchase_qty)
+        Fraction(avg_daily_sales_7d) * Fraction(target_days)
+        - Fraction(current_stock)
+        - Fraction(pending_purchase_qty)
     )
     return max(0, ceil(target))
 
@@ -79,14 +82,17 @@ def calculate_recommended_purchase_qty(
 def _number(value):
     if value is None:
         return None
-    value = Decimal(value)
+    if isinstance(value, Fraction):
+        value = Decimal(value.numerator) / Decimal(value.denominator)
+    else:
+        value = Decimal(value)
+    value = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return int(value) if value == value.to_integral_value() else float(value)
 
 
 def _average(sales_quantity, days):
-    return (Decimal(sales_quantity) / Decimal(days)).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
+    # Repeating averages stay exact until presentation, including before ceil().
+    return Fraction(sales_quantity, days)
 
 
 def _money(value):
@@ -98,6 +104,7 @@ def analyze_replenishment(product_id, as_of=None):
     if product is None:
         raise ValueError("商品不存在")
 
+    as_of = as_of or datetime.now(timezone.utc)
     sales_7d = get_sales_quantity(product_id, 7, as_of=as_of)
     sales_30d = get_sales_quantity(product_id, 30, as_of=as_of)
     avg_7d = _average(sales_7d, 7)
@@ -132,6 +139,11 @@ def analyze_replenishment(product_id, as_of=None):
             else None
         ),
         "purchase_price": _money(purchase_price),
+        "price_source": (
+            "last_purchase_price"
+            if last_purchase_price is not None
+            else "product_purchase_price"
+        ),
         "low_stock": coverage is not None and coverage < 7,
     }
 

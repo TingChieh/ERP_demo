@@ -13,6 +13,7 @@ from models import (
     InventoryTransaction,
     Product,
     PurchaseOrder,
+    PurchaseOrderItem,
     SalesOrder,
     SalesOrderItem,
     Supplier,
@@ -373,6 +374,97 @@ def test_replenishment_context_identifies_product_without_reusing_analysis_facts
     assert "不得信任" in llm.calls[1]["message"]
     with app.app_context():
         assert PurchaseOrder.query.count() == 0
+        assert InventoryTransaction.query.count() == 0
+        assert AccountPayable.query.count() == 0
+
+
+@pytest.mark.parametrize("supplier_name", [None, "供应商", "不存在供应商"])
+def test_replenishment_supplier_clarification_preserves_active_product_context(
+    app, replenishment_data, supplier_name
+):
+    with app.app_context():
+        product = Product(
+            name="无线鼠标", sku="MOUSE001", purchase_price=10, sale_price=20, stock=3
+        )
+        supplier = Supplier(name="北京鼠标供应商", phone="")
+        db.session.add_all([product, supplier])
+        db.session.flush()
+        order = SalesOrder(
+            order_no="SO-ACTIVE-PRODUCT",
+            customer_id=replenishment_data["customer_id"],
+            status="completed",
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+        order.items.append(
+            SalesOrderItem(product_id=product.id, quantity=7, unit_price=20)
+        )
+        db.session.add(order)
+        db.session.commit()
+        product_id, supplier_id = product.id, supplier.id
+
+    llm = set_llm(
+        app,
+        ToolCall(name="analyze_low_stock", arguments={"product_name": "机械键盘"}),
+        replenishment_call(product_name="无线鼠标", supplier_name=supplier_name),
+        replenishment_call(product_name=None, supplier_name="北京鼠标供应商"),
+    )
+    client = app.test_client()
+    analysis = client.post(
+        "/assistant/message", json={"message": "分析机械键盘是否需要补货"}
+    )
+    clarification = client.post(
+        "/assistant/message", json={"message": "生成无线鼠标补货预览"}
+    )
+    assert analysis.status_code == clarification.status_code == 200
+    assert clarification.json["type"] == "clarification"
+    with client.session_transaction() as session:
+        active_context = session["assistant_last_replenishment_context"]
+
+    # Facts change while the user is choosing a supplier; only identity may persist.
+    with app.app_context():
+        product = db.session.get(Product, product_id)
+        product.stock = 4
+        product.purchase_price = 12
+        order = SalesOrder.query.filter_by(order_no="SO-ACTIVE-PRODUCT").one()
+        order.items[0].quantity = 14
+        purchase = PurchaseOrder(
+            order_no="PO-ACTIVE-PRODUCT",
+            supplier_id=supplier_id,
+            status="pending_receipt",
+        )
+        purchase.items.append(
+            PurchaseOrderItem(product_id=product_id, quantity=5, unit_price=9)
+        )
+        db.session.add(purchase)
+        db.session.commit()
+
+    response = client.post(
+        "/assistant/message", json={"message": "选择北京鼠标供应商"}
+    )
+    assert response.status_code == 200
+    assert response.json["type"] == "confirmation"
+    preview = response.json["preview"]
+    assert preview["items"][0] == {
+        "product_name": "无线鼠标",
+        "sku": "MOUSE001",
+        "quantity": 19,
+        "unit_price": "9.00",
+        "subtotal": "171.00",
+    }
+    assert preview["supplier_name"] == "北京鼠标供应商"
+    assert preview["recommendation"]["current_stock"] == 4
+    assert preview["recommendation"]["sales_7d"] == 14
+    assert preview["recommendation"]["pending_purchase_qty"] == 5
+    assert active_context == [{"product_name": "无线鼠标", "sku": "MOUSE001"}]
+    assert clarification.json["data"] == {
+        "analysis_type": "replenishment",
+        "items": active_context,
+    }
+    assert "无线鼠标" in llm.calls[2]["message"]
+    assert "机械键盘" not in llm.calls[2]["message"]
+    with app.app_context():
+        assert PurchaseOrder.query.count() == 1
+        assert PurchaseOrder.query.one().status == "pending_receipt"
         assert InventoryTransaction.query.count() == 0
         assert AccountPayable.query.count() == 0
 

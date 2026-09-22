@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event
 
 from agent.tools import analyze_low_stock, prepare_replenishment_purchase
 from app import create_app
@@ -83,6 +84,7 @@ def test_analyze_low_stock_returns_real_metrics(app, replenishment_data):
         assert response.data["items"][0]["sales_7d"] == 35
         assert response.data["items"][0]["recommended_purchase_qty"] == 40
         assert "覆盖" in response.content
+        assert "平均每天约销售 5 个" in response.content
         assert "待入库" in response.content
 
 
@@ -123,6 +125,46 @@ def test_replenishment_preview_requires_supplier_when_multiple_suppliers_exist(
         assert response.type == "clarification"
         assert len(response.candidates) == 2
         assert PurchaseOrder.query.count() == 1
+
+
+@pytest.mark.parametrize(
+    "history_price,price,source,total",
+    [
+        (78, "78.00", "last_purchase_price", "3120.00"),
+        (0, "0.00", "last_purchase_price", "0.00"),
+        (None, "80.00", "product_purchase_price", "4000.00"),
+    ],
+)
+def test_preview_resolves_purchase_price_once(
+    app, replenishment_data, history_price, price, source, total
+):
+    with app.app_context():
+        purchase = PurchaseOrder.query.one()
+        if history_price is None:
+            db.session.delete(purchase)
+        else:
+            purchase.items[0].unit_price = history_price
+        db.session.commit()
+        orders_before = PurchaseOrder.query.count()
+        price_queries = []
+
+        def record_price_query(conn, cursor, statement, parameters, context, executemany):
+            if "FROM purchase_order_item" in statement and "ORDER BY" in statement:
+                price_queries.append(statement)
+
+        event.listen(db.engine, "before_cursor_execute", record_price_query)
+        try:
+            response = prepare_replenishment_purchase(product_name="机械键盘")
+        finally:
+            event.remove(db.engine, "before_cursor_execute", record_price_query)
+
+        assert response.type == "confirmation"
+        assert response.preview["items"][0]["unit_price"] == price
+        assert response.payload["items"][0]["unit_price"] == price
+        assert response.preview["total_amount"] == total
+        assert response.preview["price_source"] == source
+        assert len(price_queries) == 1
+        assert PurchaseOrder.query.count() == orders_before
 
 
 def test_single_supplier_can_be_defaulted_and_explicit_quantity_is_shown(
@@ -198,6 +240,31 @@ def test_sufficient_pending_receipt_returns_message_without_creating_order(
         assert response.type == "message"
         assert "不需要补货" in response.content
         assert PurchaseOrder.query.count() == orders_before
+
+
+@pytest.mark.parametrize("stock,pending", [(75, 0), (20, 50), (5, 100)])
+def test_sufficient_stock_and_pending_message_explains_14_day_target(
+    app, replenishment_data, stock, pending
+):
+    with app.app_context():
+        product = db.session.get(Product, replenishment_data["product_id"])
+        product.stock = stock
+        purchase = PurchaseOrder.query.one()
+        if pending:
+            purchase.items[0].quantity = pending
+        else:
+            purchase.status = "completed"
+        db.session.commit()
+
+        response = prepare_replenishment_purchase(product_name="机械键盘")
+
+        assert response.type == "message"
+        assert f"当前库存 {stock} 个" in response.content
+        assert f"待入库 {pending} 个" in response.content
+        assert "14 天" in response.content
+        assert "不需要补货" in response.content
+        assert response.preview is None
+        assert PurchaseOrder.query.count() == 1
 
 
 def test_fallback_price_uses_product_purchase_price_without_history(

@@ -11,7 +11,6 @@ from services.orders import create_purchase_order_draft, create_sales_order_draf
 from services.logging import record_database_operation
 from services.replenishment import (
     analyze_replenishment,
-    get_last_purchase_price,
     get_low_stock_analyses,
 )
 
@@ -186,6 +185,7 @@ def _replenishment_content(analysis):
     return (
         f"{analysis['product_name']}当前库存 {analysis['current_stock']} 个，"
         f"最近 7 天销售 {analysis['sales_7d']} 个，"
+        f"平均每天约销售 {analysis['avg_daily_sales_7d']} 个，"
         f"库存覆盖 {_format_coverage(analysis['days_of_inventory'])} 天，"
         f"待入库 {analysis['pending_purchase_qty']} 个，"
         f"建议采购 {analysis['recommended_purchase_qty']} 个。"
@@ -248,9 +248,15 @@ def prepare_replenishment_purchase(
         )
     if analysis["recommended_purchase_qty"] == 0:
         return message_response(
-            f"{product.name}的待入库数量已覆盖目标库存，不需要补货。"
+            f"{product.name}当前库存 {analysis['current_stock']} 个，"
+            f"加上待入库 {analysis['pending_purchase_qty']} 个，"
+            "已满足 14 天目标库存，不需要补货。"
         )
 
+    product_context = {
+        "analysis_type": "replenishment",
+        "items": [{"product_name": product.name, "sku": product.sku}],
+    }
     try:
         if supplier_name:
             supplier = _resolve_named(Supplier, "供应商", supplier_name)
@@ -261,6 +267,7 @@ def prepare_replenishment_purchase(
                 return clarification_response(
                     "请确认补货供应商。",
                     [_candidate_named(supplier) for supplier in suppliers],
+                    data=product_context,
                 )
             supplier = suppliers[0]
             supplier_source = "only_supplier"
@@ -272,17 +279,12 @@ def prepare_replenishment_purchase(
             purchase_quantity = _parse_quantity(quantity)
             quantity_source = "user"
     except _ResolutionProblem as problem:
+        problem.response.data = product_context
         return problem.response
     except ValueError as error:
         return error_response(f"{product.name}{error}。")
 
-    last_purchase_price = get_last_purchase_price(product.id)
-    if last_purchase_price is None:
-        unit_price = Decimal(product.purchase_price)
-        price_source = "product_purchase_price"
-    else:
-        unit_price = last_purchase_price
-        price_source = "last_purchase_price"
+    unit_price = Decimal(analysis["purchase_price"])
     subtotal = Decimal(purchase_quantity) * unit_price
 
     preview = {
@@ -299,7 +301,7 @@ def prepare_replenishment_purchase(
         ],
         "total_amount": format_money(subtotal),
         "quantity_source": quantity_source,
-        "price_source": price_source,
+        "price_source": analysis["price_source"],
         "recommendation": {
             "current_stock": analysis["current_stock"],
             "sales_7d": analysis["sales_7d"],

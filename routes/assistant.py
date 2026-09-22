@@ -33,7 +33,7 @@ def assistant_message():
         data.get("message", ""), context=context
     )
     if (
-        response.type == "message"
+        response.type in {"message", "clarification"}
         and isinstance(response.data, dict)
         and response.data.get("analysis_type") == "replenishment"
     ):
