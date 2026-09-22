@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,45 @@ from models import (
     Supplier,
     db,
 )
+
+
+class TableBodyRowsParser(HTMLParser):
+    """Collect text from each data row and cell in a rendered table body."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows = []
+        self._inside_tbody = False
+        self._row = None
+        self._cell = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tbody":
+            self._inside_tbody = True
+        elif self._inside_tbody and tag == "tr":
+            self._row = []
+        elif self._row is not None and tag == "td":
+            self._cell = []
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "td" and self._cell is not None:
+            self._row.append("".join(self._cell).strip())
+            self._cell = None
+        elif tag == "tr" and self._row is not None:
+            self.rows.append(self._row)
+            self._row = None
+        elif tag == "tbody":
+            self._inside_tbody = False
+
+
+def rendered_table_rows(body):
+    parser = TableBodyRowsParser()
+    parser.feed(body)
+    return parser.rows
 
 
 @pytest.fixture()
@@ -92,6 +133,7 @@ def seed_inventory_data(app):
                     quantity=10,
                     related_order_no="PO-COMPLETED",
                     balance_after=8,
+                    created_at=datetime(2026, 9, 22, 0, 1, tzinfo=timezone.utc),
                 ),
                 InventoryTransaction(
                     product_id=keyboard.id,
@@ -99,6 +141,7 @@ def seed_inventory_data(app):
                     quantity=2,
                     related_order_no="SO-COMPLETED",
                     balance_after=8,
+                    created_at=datetime(2026, 9, 22, 0, 2, tzinfo=timezone.utc),
                 ),
             ]
         )
@@ -166,23 +209,33 @@ def test_current_inventory_shows_stock_and_status_for_each_product(app):
     seed_inventory_data(app)
     body = app.test_client().get("/inventory").get_data(as_text=True)
 
-    assert "机械键盘" in body
-    assert "KB001" in body
-    assert "8" in body
-    assert "有库存" in body
-    assert "鼠标" in body
-    assert "暂无库存" in body
+    assert rendered_table_rows(body) == [
+        ["机械键盘", "KB001", "8", "有库存"],
+        ["鼠标", "MS001", "0", "暂无库存"],
+    ]
 
 
 def test_inventory_transactions_show_type_quantity_balance_and_order(app):
     seed_inventory_data(app)
     body = app.test_client().get("/inventory/transactions").get_data(as_text=True)
 
-    assert "入库" in body
-    assert "出库" in body
-    assert "10" in body
-    assert "2" in body
-    assert "8" in body
-    assert "PO-COMPLETED" in body
-    assert "SO-COMPLETED" in body
-    assert "变更后库存" in body
+    assert rendered_table_rows(body) == [
+        [
+            "机械键盘",
+            "KB001",
+            "出库",
+            "2",
+            "8",
+            "SO-COMPLETED",
+            "2026-09-22 00:02",
+        ],
+        [
+            "机械键盘",
+            "KB001",
+            "入库",
+            "10",
+            "8",
+            "PO-COMPLETED",
+            "2026-09-22 00:01",
+        ],
+    ]
