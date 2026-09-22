@@ -154,10 +154,23 @@ def test_purchase_draft_edit_get_prefills_current_values(app, master_data):
 
     html = response.get_data(as_text=True)
     assert response.status_code == 200
-    assert 'name="supplier_id"' in html
-    assert f'value="{master_data["keyboard_id"]}"' in html
-    assert 'value="2"' in html
-    assert 'value="80"' in html
+    assert (
+        f'<option value="{master_data["supplier_id"]}" selected>' in html
+    )
+    assert (
+        f'name="product_ids" value="{master_data["keyboard_id"]}" checked'
+        in html
+    )
+    assert (
+        f'name="quantity_{master_data["keyboard_id"]}" type="number" '
+        'min="1" step="1" value="2"'
+        in html
+    )
+    assert (
+        f'name="unit_price_{master_data["keyboard_id"]}" type="number" '
+        'min="0" step="0.01" value="80"'
+        in html
+    )
     assert "编辑采购订单" in html
 
 
@@ -195,6 +208,72 @@ def test_purchase_draft_edit_replaces_supplier_lines_and_total_without_side_effe
         assert db.session.get(Product, master_data["mouse_id"]).stock == 3
         assert InventoryTransaction.query.count() == 0
         assert AccountPayable.query.count() == 0
+
+
+def test_purchase_draft_edit_validation_error_echoes_submitted_data_without_mutation(
+    app, master_data
+):
+    client = app.test_client()
+    client.post(
+        "/purchase-orders/new",
+        data=purchase_form(
+            master_data["supplier_id"],
+            [(master_data["keyboard_id"], 2, "80")],
+        ),
+    )
+    with app.app_context():
+        order = PurchaseOrder.query.one()
+        order_id = order.id
+        original = {
+            "supplier_id": order.supplier_id,
+            "items": [
+                (item.product_id, item.quantity, item.unit_price)
+                for item in order.items
+            ],
+            "total_amount": order.total_amount,
+            "order_no": order.order_no,
+            "created_at": order.created_at,
+        }
+
+    response = client.post(
+        f"/purchase-orders/{order_id}/edit",
+        data=purchase_form(
+            master_data["alternate_supplier_id"],
+            [(master_data["mouse_id"], -3, "35.50")],
+        ),
+    )
+
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "鼠标的数量必须大于 0" in html
+    assert (
+        f'<option value="{master_data["alternate_supplier_id"]}" selected>'
+        in html
+    )
+    assert (
+        f'name="product_ids" value="{master_data["mouse_id"]}" checked'
+        in html
+    )
+    assert (
+        f'name="quantity_{master_data["mouse_id"]}" type="number" '
+        'min="1" step="1" value="-3"'
+        in html
+    )
+    assert (
+        f'name="unit_price_{master_data["mouse_id"]}" type="number" '
+        'min="0" step="0.01" value="35.50"'
+        in html
+    )
+
+    with app.app_context():
+        order = db.session.get(PurchaseOrder, order_id)
+        assert order.supplier_id == original["supplier_id"]
+        assert [
+            (item.product_id, item.quantity, item.unit_price) for item in order.items
+        ] == original["items"]
+        assert order.total_amount == original["total_amount"]
+        assert order.order_no == original["order_no"]
+        assert order.created_at == original["created_at"]
 
 
 def test_purchase_draft_delete_removes_order_and_items(app, master_data):
@@ -256,7 +335,10 @@ def test_purchase_detail_shows_edit_delete_controls_only_for_drafts(
 
     if status == "draft":
         assert f'/purchase-orders/{order_id}/edit' in html
-        assert f'/purchase-orders/{order_id}/delete' in html
+        assert (
+            f'<form method="post" action="/purchase-orders/{order_id}/delete"'
+            in html
+        )
         assert "确定删除这份采购草稿吗？" in html
     else:
         assert f'/purchase-orders/{order_id}/edit' not in html
