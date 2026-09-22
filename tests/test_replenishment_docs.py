@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-README = (Path(__file__).resolve().parents[1] / "README.md").read_text()
+README = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
 
 
 def test_readme_documents_replenishment_rules_and_safety_boundaries():
