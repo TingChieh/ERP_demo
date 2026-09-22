@@ -11,7 +11,11 @@ from models import (
     SalesOrder,
     db,
 )
-from services.orders import create_sales_order_draft
+from services.orders import (
+    create_sales_order_draft,
+    delete_sales_order_draft,
+    update_sales_order_draft,
+)
 
 
 sales_orders_bp = Blueprint("sales_orders", __name__, url_prefix="/sales-orders")
@@ -34,6 +38,15 @@ def _empty_form_data(products):
         "selected_product_ids": [],
         "quantities": {},
         "unit_prices": {str(product.id): str(product.sale_price) for product in products},
+    }
+
+
+def _form_data_from_order(order):
+    return {
+        "customer_id": str(order.customer_id),
+        "selected_product_ids": [str(item.product_id) for item in order.items],
+        "quantities": {str(item.product_id): str(item.quantity) for item in order.items},
+        "unit_prices": {str(item.product_id): str(item.unit_price) for item in order.items},
     }
 
 
@@ -169,7 +182,91 @@ def new_sales_order():
         products=products,
         form_data=form_data,
         errors=errors,
+        edit_mode=False,
+        form_action=url_for("sales_orders.new_sales_order"),
+        page_title="新建销售订单",
+        page_description="订单创建后为草稿，不会扣减库存或产生应收账款。",
+        submit_label="保存草稿",
+        cancel_url=url_for("sales_orders.list_sales_orders"),
     )
+
+
+@sales_orders_bp.route("/<int:order_id>/edit", methods=["GET", "POST"])
+def edit_sales_order(order_id):
+    order = db.get_or_404(SalesOrder, order_id)
+    if order.status != "draft":
+        return (
+            _render_sales_order_detail(
+                order, error="只有草稿状态的销售订单可以编辑"
+            ),
+            400,
+        )
+
+    customers = Customer.query.order_by(Customer.name).all()
+    products = Product.query.order_by(Product.name).all()
+    form_data = _form_data_from_order(order)
+    errors = []
+
+    if request.method == "POST":
+        form_data = _read_form_data(request.form)
+        errors, customer_id, lines, _ = _validate_form(form_data)
+        if not errors:
+            try:
+                update_sales_order_draft(
+                    order,
+                    customer_id,
+                    [
+                        {
+                            "product_id": line["product"].id,
+                            "quantity": line["quantity"],
+                            "unit_price": line["unit_price"],
+                        }
+                        for line in lines
+                    ],
+                )
+            except (SQLAlchemyError, ValueError):
+                db.session.rollback()
+                errors.append("销售订单保存失败，请检查数据后重试")
+            else:
+                return redirect(
+                    url_for("sales_orders.sales_order_detail", order_id=order.id)
+                )
+
+    return render_template(
+        "sales_orders/form.html",
+        customers=customers,
+        products=products,
+        form_data=form_data,
+        errors=errors,
+        edit_mode=True,
+        form_action=url_for("sales_orders.edit_sales_order", order_id=order.id),
+        page_title="编辑销售订单",
+        page_description="编辑草稿不会扣减库存或产生应收账款。",
+        submit_label="保存修改",
+        cancel_url=url_for("sales_orders.sales_order_detail", order_id=order.id),
+    )
+
+
+@sales_orders_bp.post("/<int:order_id>/delete")
+def delete_sales_order(order_id):
+    order = db.get_or_404(SalesOrder, order_id)
+    if order.status != "draft":
+        return (
+            _render_sales_order_detail(
+                order, error="只有草稿状态的销售订单可以删除"
+            ),
+            400,
+        )
+
+    try:
+        delete_sales_order_draft(order)
+    except (SQLAlchemyError, ValueError):
+        db.session.rollback()
+        return (
+            _render_sales_order_detail(order, error="销售订单删除失败，请稍后重试"),
+            400,
+        )
+    return redirect(url_for("sales_orders.list_sales_orders"))
 
 
 @sales_orders_bp.get("/<int:order_id>")

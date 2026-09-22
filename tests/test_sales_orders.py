@@ -140,6 +140,180 @@ def test_sales_order_detail_returns_200(app, master_data):
     assert order.order_no.encode() in response.data
 
 
+def test_sales_draft_edit_get_prefills_current_values(app, master_data):
+    client = app.test_client()
+    client.post(
+        "/sales-orders/new",
+        data=sales_form(
+            master_data["customer_id"],
+            [(master_data["keyboard_id"], 2, "120")],
+        ),
+    )
+    with app.app_context():
+        order_id = SalesOrder.query.one().id
+
+    response = client.get(f"/sales-orders/{order_id}/edit")
+
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert f'<option value="{master_data["customer_id"]}" selected>' in html
+    assert (
+        f'name="product_ids" value="{master_data["keyboard_id"]}" checked'
+        in html
+    )
+    assert (
+        f'name="quantity_{master_data["keyboard_id"]}" type="number" '
+        'min="1" step="1" value="2"'
+        in html
+    )
+    assert (
+        f'name="unit_price_{master_data["keyboard_id"]}" type="number" '
+        'min="0" step="0.01" value="120"'
+        in html
+    )
+    assert "编辑销售订单" in html
+
+
+def test_sales_draft_edit_replaces_customer_lines_and_total_without_side_effects(
+    app, master_data
+):
+    client = app.test_client()
+    client.post(
+        "/sales-orders/new",
+        data=sales_form(
+            master_data["customer_id"],
+            [(master_data["keyboard_id"], 1, "120")],
+        ),
+    )
+    with app.app_context():
+        order_id = SalesOrder.query.one().id
+        initial_stock = db.session.get(Product, master_data["keyboard_id"]).stock
+
+    response = client.post(
+        f"/sales-orders/{order_id}/edit",
+        data=sales_form(
+            master_data["alternate_customer_id"],
+            [(master_data["mouse_id"], 3, "65.50")],
+        ),
+    )
+
+    assert response.status_code == 302
+    with app.app_context():
+        order = db.session.get(SalesOrder, order_id)
+        assert order.status == "draft"
+        assert order.customer_id == master_data["alternate_customer_id"]
+        assert order.total_amount == Decimal("196.50")
+        assert [(item.product_id, item.quantity, item.unit_price) for item in order.items] == [
+            (master_data["mouse_id"], 3, Decimal("65.50"))
+        ]
+        assert db.session.get(Product, master_data["keyboard_id"]).stock == initial_stock
+        assert InventoryTransaction.query.count() == 0
+        assert AccountReceivable.query.count() == 0
+
+
+def test_sales_draft_edit_validation_error_echoes_submitted_data_without_mutation(
+    app, master_data
+):
+    client = app.test_client()
+    client.post(
+        "/sales-orders/new",
+        data=sales_form(
+            master_data["customer_id"],
+            [(master_data["keyboard_id"], 1, "120")],
+        ),
+    )
+    with app.app_context():
+        order = SalesOrder.query.one()
+        order_id = order.id
+        original = (order.customer_id, order.total_amount, order.items[0].product_id)
+
+    response = client.post(
+        f"/sales-orders/{order_id}/edit",
+        data=sales_form(
+            master_data["alternate_customer_id"],
+            [(master_data["mouse_id"], -3, "65.50")],
+        ),
+    )
+
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "鼠标的数量必须大于 0" in html
+    assert f'<option value="{master_data["alternate_customer_id"]}" selected>' in html
+    assert f'name="product_ids" value="{master_data["mouse_id"]}" checked' in html
+    with app.app_context():
+        order = db.session.get(SalesOrder, order_id)
+        assert (order.customer_id, order.total_amount, order.items[0].product_id) == original
+
+
+def test_sales_draft_delete_removes_order_and_items(app, master_data):
+    client = app.test_client()
+    client.post(
+        "/sales-orders/new",
+        data=sales_form(
+            master_data["customer_id"],
+            [(master_data["keyboard_id"], 1, "120")],
+        ),
+    )
+    with app.app_context():
+        order_id = SalesOrder.query.one().id
+
+    response = client.post(f"/sales-orders/{order_id}/delete")
+
+    assert response.status_code == 302
+    with app.app_context():
+        assert SalesOrder.query.count() == 0
+        assert SalesOrderItem.query.count() == 0
+        assert InventoryTransaction.query.count() == 0
+        assert AccountReceivable.query.count() == 0
+
+
+@pytest.mark.parametrize("status", ["pending_shipment", "completed"])
+def test_sales_non_draft_edit_and_delete_return_400(app, master_data, status):
+    with app.app_context():
+        order = create_sales_order_draft(
+            master_data["customer_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "120"}],
+        )
+        order.status = status
+        db.session.commit()
+        order_id = order.id
+
+    client = app.test_client()
+    assert client.get(f"/sales-orders/{order_id}/edit").status_code == 400
+    assert client.post(
+        f"/sales-orders/{order_id}/edit",
+        data=sales_form(
+            master_data["alternate_customer_id"],
+            [(master_data["mouse_id"], 2, "65")],
+        ),
+    ).status_code == 400
+    assert client.post(f"/sales-orders/{order_id}/delete").status_code == 400
+
+
+@pytest.mark.parametrize("status", ["draft", "pending_shipment", "completed"])
+def test_sales_detail_shows_edit_delete_controls_only_for_drafts(
+    app, master_data, status
+):
+    with app.app_context():
+        order = create_sales_order_draft(
+            master_data["customer_id"],
+            [{"product_id": master_data["keyboard_id"], "quantity": 1, "unit_price": "120"}],
+        )
+        order.status = status
+        db.session.commit()
+        order_id = order.id
+
+    html = app.test_client().get(f"/sales-orders/{order_id}").get_data(as_text=True)
+
+    if status == "draft":
+        assert f"/sales-orders/{order_id}/edit" in html
+        assert f'<form method="post" action="/sales-orders/{order_id}/delete"' in html
+        assert "确定删除这份销售草稿吗？" in html
+    else:
+        assert f"/sales-orders/{order_id}/edit" not in html
+        assert f"/sales-orders/{order_id}/delete" not in html
+
+
 def test_client_total_amount_is_ignored(app, master_data):
     app.test_client().post(
         "/sales-orders/new",
