@@ -20,12 +20,24 @@
           <a class="nav-link {% if request.endpoint and request.endpoint.startswith('customers.') %}active{% endif %}" data-nav-endpoint="customers.list_customers" {% if request.endpoint and request.endpoint.startswith('customers.') %}aria-current="page"{% endif %} href="{{ url_for('customers.list_customers') }}">客户管理</a>
           <div class="nav-section">业务管理</div>
           <a class="nav-link {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}active{% endif %}" data-nav-endpoint="purchase_orders.list_purchase_orders" {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}aria-current="page"{% endif %} href="{{ url_for('purchase_orders.list_purchase_orders') }}">采购订单</a>
-          <a class="nav-link disabled" href="#" aria-disabled="true">采购入库</a>
+          <a class="nav-link {% if request.endpoint == 'inventory.purchase_receipts' %}active{% endif %}"
+             data-nav-endpoint="inventory.purchase_receipts"
+             {% if request.endpoint == 'inventory.purchase_receipts' %}aria-current="page"{% endif %}
+             href="{{ url_for('inventory.purchase_receipts') }}">采购入库</a>
           <a class="nav-link {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}active{% endif %}" data-nav-endpoint="sales_orders.list_sales_orders" {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}aria-current="page"{% endif %} href="{{ url_for('sales_orders.list_sales_orders') }}">销售订单</a>
-          <a class="nav-link disabled" href="#" aria-disabled="true">销售出库</a>
+          <a class="nav-link {% if request.endpoint == 'inventory.sales_shipments' %}active{% endif %}"
+             data-nav-endpoint="inventory.sales_shipments"
+             {% if request.endpoint == 'inventory.sales_shipments' %}aria-current="page"{% endif %}
+             href="{{ url_for('inventory.sales_shipments') }}">销售出库</a>
           <div class="nav-section">库存管理</div>
-          <a class="nav-link disabled" href="#" aria-disabled="true">当前库存</a>
-          <a class="nav-link disabled" href="#" aria-disabled="true">库存流水</a>
+          <a class="nav-link {% if request.endpoint == 'inventory.current_inventory' %}active{% endif %}"
+             data-nav-endpoint="inventory.current_inventory"
+             {% if request.endpoint == 'inventory.current_inventory' %}aria-current="page"{% endif %}
+             href="{{ url_for('inventory.current_inventory') }}">当前库存</a>
+          <a class="nav-link {% if request.endpoint == 'inventory.inventory_transactions' %}active{% endif %}"
+             data-nav-endpoint="inventory.inventory_transactions"
+             {% if request.endpoint == 'inventory.inventory_transactions' %}aria-current="page"{% endif %}
+             href="{{ url_for('inventory.inventory_transactions') }}">库存流水</a>
           <div class="nav-section">财务与系统</div>
           <a class="nav-link {% if request.endpoint == 'settlements.list_receivables' %}active{% endif %}" data-nav-endpoint="settlements.list_receivables" {% if request.endpoint == 'settlements.list_receivables' %}aria-current="page"{% endif %} href="{{ url_for('settlements.list_receivables') }}">应收账款</a>
           <a class="nav-link {% if request.endpoint == 'settlements.list_payables' %}active{% endif %}" data-nav-endpoint="settlements.list_payables" {% if request.endpoint == 'settlements.list_payables' %}aria-current="page"{% endif %} href="{{ url_for('settlements.list_payables') }}">应付账款</a>
@@ -43,7 +55,11 @@
             <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('suppliers.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('suppliers.') %}aria-current='page'{% endif %} href="{{ url_for('suppliers.list_suppliers') }}">供应商管理</a>
             <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('customers.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('customers.') %}aria-current='page'{% endif %} href="{{ url_for('customers.list_customers') }}">客户管理</a>
             <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('purchase_orders.') %}aria-current='page'{% endif %} href="{{ url_for('purchase_orders.list_purchase_orders') }}">采购订单</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'inventory.purchase_receipts' %}active{% endif %}" data-nav-endpoint="inventory.purchase_receipts" {% if request.endpoint == 'inventory.purchase_receipts' %}aria-current="page"{% endif %} href="{{ url_for('inventory.purchase_receipts') }}">采购入库</a>
             <a class="mobile-nav-link {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('sales_orders.') %}aria-current='page'{% endif %} href="{{ url_for('sales_orders.list_sales_orders') }}">销售订单</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'inventory.sales_shipments' %}active{% endif %}" data-nav-endpoint="inventory.sales_shipments" {% if request.endpoint == 'inventory.sales_shipments' %}aria-current="page"{% endif %} href="{{ url_for('inventory.sales_shipments') }}">销售出库</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'inventory.current_inventory' %}active{% endif %}" data-nav-endpoint="inventory.current_inventory" {% if request.endpoint == 'inventory.current_inventory' %}aria-current="page"{% endif %} href="{{ url_for('inventory.current_inventory') }}">当前库存</a>
+            <a class="mobile-nav-link {% if request.endpoint == 'inventory.inventory_transactions' %}active{% endif %}" data-nav-endpoint="inventory.inventory_transactions" {% if request.endpoint == 'inventory.inventory_transactions' %}aria-current="page"{% endif %} href="{{ url_for('inventory.inventory_transactions') }}">库存流水</a>
             <a class="mobile-nav-link {% if request.endpoint == 'settlements.list_receivables' %}active{% endif %}" {% if request.endpoint == 'settlements.list_receivables' %}aria-current='page'{% endif %} href="{{ url_for('settlements.list_receivables') }}">应收账款</a>
             <a class="mobile-nav-link {% if request.endpoint == 'settlements.list_payables' %}active{% endif %}" {% if request.endpoint == 'settlements.list_payables' %}aria-current='page'{% endif %} href="{{ url_for('settlements.list_payables') }}">应付账款</a>
             <a class="mobile-nav-link {% if request.endpoint == 'logs.database_logs' %}active{% endif %}" {% if request.endpoint == 'logs.database_logs' %}aria-current='page'{% endif %} href="{{ url_for('logs.database_logs') }}">操作日志</a>

@@ -109,3 +109,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 900px) { .app-shell { grid-template-columns: minmax(0, 1fr); } .sidebar { display: none; } .mobile-nav { display: block; margin: 14px clamp(18px, 3vw, 42px) 0; border: 1px solid var(--erp-border); border-radius: 12px; background: var(--erp-surface); } .mobile-nav summary { padding: 10px 14px; color: var(--erp-text); cursor: pointer; font-weight: 700; } .mobile-nav-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 0 8px 8px; } .mobile-nav-link { padding: 8px 10px; } .topbar { min-height: auto; padding-top: 14px; padding-bottom: 14px; } .page-header { align-items: stretch; flex-direction: column; } }
 @media (max-width: 700px) { .replenishment-warning-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .replenishment-warning-row > :first-child { grid-column: 1 / -1; } }
 @media (max-width: 560px) { .mobile-nav-panel, .metric-grid-primary, .metric-grid-finance, .form-grid--two-columns { grid-template-columns: minmax(0, 1fr); } .topbar { align-items: flex-start; flex-direction: column; } .topbar-actions { justify-content: flex-start; } .replenishment-warning-row { grid-template-columns: minmax(0, 1fr); } .replenishment-warning-row > :first-child { grid-column: auto; } }
+
+.inventory-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.inventory-stock-value { display: inline-block; min-width: 3rem; font-weight: 800; }
+.inventory-empty { margin: 0; padding: 2.5rem 1rem; text-align: center; }
+@media (max-width: 560px) {
+  .inventory-toolbar { align-items: stretch; flex-direction: column; }
+  .inventory-toolbar .btn { width: 100%; }
+}
