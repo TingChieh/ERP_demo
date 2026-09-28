@@ -624,14 +624,13 @@ def _render_pdf_sections(results, report_title=None):
         story.append(Paragraph(escape(specification.title), section_title_style))
         if not specification.supports_date_filter:
             story.append(Paragraph("当前快照，日期范围不适用", note_style))
-        if rows:
-            story.append(
-                _table_for_dataset(
-                    specification, rows, available_width, cell_style, header_style
-                )
-            )
-        else:
+        if not rows:
             story.append(Paragraph("没有符合条件的记录", cell_style))
+        story.append(
+            _table_for_dataset(
+                specification, rows, available_width, cell_style, header_style
+            )
+        )
     document.build(story)
     return output.getvalue()
 

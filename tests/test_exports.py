@@ -149,6 +149,7 @@ def test_all_pdf_is_one_report_with_sections_and_snapshot_notes(app):
         assert export_file.filename.startswith("all_data_")
         assert all(dataset.title in text for dataset in exports.DATASETS.values())
         assert "当前快照，日期范围不适用" in text
+        assert "商品名称" in text
         assert "没有符合条件的记录" in text
 
 
