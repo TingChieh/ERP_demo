@@ -81,6 +81,7 @@ def app(tmp_path: Path):
         ("/payables", "settlements.list_payables"),
         ("/logs/database", "logs.database_logs"),
         ("/logs/api", "logs.api_logs"),
+        ("/exports/", "exports.export_page"),
         ("/purchase-receipts", "inventory.purchase_receipts"),
         ("/sales-shipments", "inventory.sales_shipments"),
         ("/inventory", "inventory.current_inventory"),
@@ -114,6 +115,7 @@ def test_current_page_is_the_only_active_navigation_target(app):
         ("/purchase-receipts", "inventory.purchase_receipts", "/purchase-receipts"),
         ("/sales-shipments", "inventory.sales_shipments", "/sales-shipments"),
         ("/inventory", "inventory.current_inventory", "/inventory"),
+        ("/exports/", "exports.export_page", "/exports/"),
         (
             "/inventory/transactions",
             "inventory.inventory_transactions",

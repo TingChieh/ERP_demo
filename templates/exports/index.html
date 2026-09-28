@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}数据导出 - ERP Demo{% endblock %}
+
+{% block content %}
+<section class="page-header" data-page-type="export-page">
+  <div>
+    <p class="eyebrow">DATA EXPORT</p>
+    <h1>数据导出</h1>
+    <p class="page-description">选择单个数据集或导出全部数据，可生成一个 Excel 工作簿或一份 PDF 报告。</p>
+  </div>
+</section>
+
+<section class="surface-card p-4">
+  {% if error %}
+  <p class="alert alert-danger" role="alert">{{ error }}</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('exports.create_export') }}" class="row g-3">
+    <div class="col-12 col-md-6">
+      <label class="form-label" for="export-dataset">导出数据</label>
+      <select class="form-select" id="export-dataset" name="dataset" required>
+        <option value="all" {% if form_values.get('dataset', 'all') == 'all' %}selected{% endif %}>全部数据集</option>
+        {% for dataset_id, title, supports_date_filter in datasets %}
+        <option value="{{ dataset_id }}" {% if form_values.get('dataset') == dataset_id %}selected{% endif %}>{{ title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12 col-md-6">
+      <label class="form-label" for="export-format">文件格式</label>
+      <select class="form-select" id="export-format" name="file_format" required>
+        <option value="xlsx" {% if form_values.get('file_format', 'xlsx') == 'xlsx' %}selected{% endif %}>Excel 工作簿 (.xlsx)</option>
+        <option value="pdf" {% if form_values.get('file_format') == 'pdf' %}selected{% endif %}>合并 PDF 报告</option>
+      </select>
+    </div>
+
+    <div class="col-12 col-md-6">
+      <label class="form-label" for="export-start-date">开始日期（包含当天）</label>
+      <input class="form-control" id="export-start-date" name="start_date" type="date" value="{{ form_values.get('start_date', '') }}">
+    </div>
+
+    <div class="col-12 col-md-6">
+      <label class="form-label" for="export-end-date">结束日期（包含当天）</label>
+      <input class="form-control" id="export-end-date" name="end_date" type="date" value="{{ form_values.get('end_date', '') }}">
+    </div>
+
+    <div class="col-12 col-md-6">
+      <label class="form-label" for="export-limit">每个数据集最多导出条数</label>
+      <input class="form-control" id="export-limit" name="limit" type="number" min="1" max="10000" step="1" value="{{ form_values.get('limit', '') }}" aria-describedby="export-limit-help">
+      <div class="form-text" id="export-limit-help">留空表示不限制；填写时为 1 至 10,000 条。达到上限时优先导出最新记录。</div>
+    </div>
+
+    <div class="col-12">
+      <p class="small text-muted mb-0">日期范围只筛选有创建时间的数据，按上海日历日包含首尾日期。商品、客户、供应商和当前库存按当前快照导出，不受日期筛选；条数上限仍适用。</p>
+    </div>
+
+    <div class="col-12">
+      <button class="btn btn-primary" type="submit">生成并下载</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
