@@ -14,6 +14,7 @@ from models import (
     db,
 )
 from routes.customers import customers_bp
+from routes.exports import exports_bp
 from routes.inventory import inventory_bp
 from routes.assistant import assistant_bp
 from routes.products import products_bp
@@ -38,6 +39,7 @@ def create_app(test_config=None):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SECRET_KEY=os.getenv("SECRET_KEY", "dev-secret-change-me"),
         AGENT_LLM_CLIENT=None,
+        MAX_CONTENT_LENGTH=10 * 1024 * 1024,
     )
 
     if test_config:
@@ -53,6 +55,7 @@ def create_app(test_config=None):
     app.register_blueprint(assistant_bp)
     app.register_blueprint(logs_bp)
     app.register_blueprint(inventory_bp)
+    app.register_blueprint(exports_bp)
 
     @app.get("/")
     def dashboard():

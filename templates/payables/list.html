@@ -9,6 +9,10 @@
     <h1>应付账款</h1>
     <p class="page-description">采购入库成功后产生，当前只支持整笔付款。</p>
   </div>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='payables', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='payables', file_format='pdf') }}">导出 PDF</a>
+  </div>
 </section>
 
 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}

@@ -9,7 +9,11 @@
     <h1>客户管理</h1>
     <p class="page-description">维护客户基础资料。</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('customers.new_customer') }}">新增客户</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a class="btn btn-primary" href="{{ url_for('customers.new_customer') }}">新增客户</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='customers', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='customers', file_format='pdf') }}">导出 PDF</a>
+  </div>
 </section>
 <section class="surface-card table-card"><div class="table-responsive">
   <table class="table table-hover mb-0 align-middle">

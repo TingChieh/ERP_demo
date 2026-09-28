@@ -89,6 +89,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .assistant-composer { padding: clamp(16px, 3vw, 24px); }
 .assistant-input-row { display: flex; gap: 10px; }
 .assistant-input-row .form-control { min-width: 0; }
+.assistant-document-upload { margin-top: 14px; }
+.assistant-document-upload .form-control { max-width: 520px; }
+.assistant-document-disclosure { max-width: 720px; margin: 8px 0 0; color: var(--erp-muted); font-size: 0.82rem; }
 .assistant-bubble { max-width: 85%; margin-bottom: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.75rem; white-space: pre-wrap; }
 .assistant-bubble-user { margin-left: auto; color: #ffffff; background: var(--erp-primary); }
 .assistant-bubble-message, .assistant-bubble-clarification, .assistant-bubble-error { background: #f1f5f9; }

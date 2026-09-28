@@ -2,6 +2,7 @@
   const chat = document.getElementById("assistant-chat");
   const form = document.getElementById("assistant-form");
   const input = document.getElementById("assistant-input");
+  const documentInput = document.getElementById("assistant-document");
 
   function addBubble(text, kind) {
     const bubble = document.createElement("div");
@@ -36,6 +37,33 @@
       addPreviewText(basis, "div", `${label}：${value}`, "assistant-replenishment-basis-line");
     });
     card.appendChild(basis);
+  }
+
+  function addExportDownload(response) {
+    const data = response.data;
+    if (!data || typeof data.download_url !== "string") return;
+
+    let downloadUrl;
+    try {
+      downloadUrl = new URL(data.download_url, window.location.href);
+    } catch (_) {
+      return;
+    }
+    if (
+      downloadUrl.origin !== window.location.origin ||
+      !downloadUrl.pathname.startsWith("/exports/download/")
+    ) return;
+
+    const card = document.createElement("div");
+    card.className = "assistant-preview surface-card assistant-preview-card";
+    addPreviewText(card, "strong", "导出文件已准备好");
+    const link = document.createElement("a");
+    link.className = "btn btn-outline-primary btn-sm mt-3";
+    link.href = downloadUrl.pathname;
+    link.textContent = `下载 ${String(data.filename || "导出文件")}`;
+    card.appendChild(link);
+    chat.appendChild(card);
+    chat.scrollTop = chat.scrollHeight;
   }
 
   function addResponse(response) {
@@ -75,6 +103,7 @@
       return;
     }
     addBubble(response.content || response.message || "无法处理该请求。", response.type);
+    addExportDownload(response);
   }
 
   async function sendMessage(message) {
@@ -85,6 +114,33 @@
       body: JSON.stringify({ message }),
     });
     addResponse(await response.json());
+  }
+
+  async function sendDocument(question, file) {
+    const prompt = question || "请总结并解读这个文件。";
+    addBubble(`${prompt}\n附件：${file.name}`, "user");
+    const formData = new FormData();
+    formData.append("document", file);
+    formData.append("question", question);
+
+    try {
+      const response = await fetch("/assistant/document", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json().catch(() => null);
+      if (!result) {
+        addBubble("文件解读失败，请稍后重试。", "error");
+        return;
+      }
+      if (!response.ok && !result.type) {
+        addBubble("文件解读失败，请稍后重试。", "error");
+        return;
+      }
+      addResponse(result);
+    } catch (_) {
+      addBubble("无法连接 AI 助手，请稍后重试。", "error");
+    }
   }
 
   async function confirmPreview(token, action) {
@@ -99,9 +155,16 @@
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const message = input.value.trim();
-    if (!message) return;
+    const file = documentInput.files[0];
+    if (!message && !file) return;
     input.value = "";
-    sendMessage(message);
+    if (file) {
+      sendDocument(message, file).finally(() => {
+        documentInput.value = "";
+      });
+    } else {
+      sendMessage(message);
+    }
   });
 
   document.querySelectorAll(".assistant-example").forEach((button) => {

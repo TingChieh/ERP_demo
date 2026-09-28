@@ -13,6 +13,8 @@
     <a class="btn btn-outline-secondary" href="{{ url_for('inventory.inventory_transactions') }}">库存流水</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('inventory.purchase_receipts') }}">采购入库</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('inventory.sales_shipments') }}">销售出库</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='inventory', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='inventory', file_format='pdf') }}">导出 PDF</a>
   </div>
 </section>
 

@@ -9,7 +9,11 @@
     <h1>供应商管理</h1>
     <p class="page-description">维护供应商基础资料。</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('suppliers.new_supplier') }}">新增供应商</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a class="btn btn-primary" href="{{ url_for('suppliers.new_supplier') }}">新增供应商</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='suppliers', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='suppliers', file_format='pdf') }}">导出 PDF</a>
+  </div>
 </section>
 <section class="surface-card table-card"><div class="table-responsive">
   <table class="table table-hover mb-0 align-middle">

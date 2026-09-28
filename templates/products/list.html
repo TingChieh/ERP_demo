@@ -9,7 +9,11 @@
     <h1>商品管理</h1>
     <p class="page-description">维护商品主数据，库存只能通过库存业务变化。</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('products.new_product') }}">新增商品</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a class="btn btn-primary" href="{{ url_for('products.new_product') }}">新增商品</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='products', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='products', file_format='pdf') }}">导出 PDF</a>
+  </div>
 </section>
 
 <section class="surface-card table-card">

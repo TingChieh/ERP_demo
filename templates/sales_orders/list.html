@@ -9,7 +9,11 @@
     <h1>销售订单</h1>
     <p class="page-description">记录客户购买需求，暂不执行销售出库。</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('sales_orders.new_sales_order') }}">新建销售订单</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a class="btn btn-primary" href="{{ url_for('sales_orders.new_sales_order') }}">新建销售订单</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='sales_orders', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='sales_orders', file_format='pdf') }}">导出 PDF</a>
+  </div>
 </section>
 
 <section class="surface-card table-card">

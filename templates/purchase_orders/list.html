@@ -9,7 +9,11 @@
     <h1>采购订单</h1>
     <p class="page-description">创建和确认采购需求，暂不执行采购入库。</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('purchase_orders.new_purchase_order') }}">新建采购订单</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a class="btn btn-primary" href="{{ url_for('purchase_orders.new_purchase_order') }}">新建采购订单</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='purchase_orders', file_format='xlsx') }}">导出 Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('exports.download_export', dataset='purchase_orders', file_format='pdf') }}">导出 PDF</a>
+  </div>
 </section>
 
 <section class="surface-card table-card">

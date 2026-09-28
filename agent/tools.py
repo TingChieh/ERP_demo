@@ -1,5 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
+from flask import url_for
+
 from models import (
     AccountReceivable,
     Customer,
@@ -13,6 +15,8 @@ from services.replenishment import (
     analyze_replenishment,
     get_low_stock_analyses,
 )
+from services.export_artifacts import store_export_artifact
+from services.exports import ExportRequestError, generate_export
 
 from .schemas import (
     AgentResponse,
@@ -507,4 +511,22 @@ def get_unpaid_receivables(*, customer_name=None):
     return message_response(
         f"目前共有 {len(items)} 笔未收应收账款，总额 {format_money(total_amount)} 元。",
         data=data,
+    )
+
+
+def export_dataset(*, dataset, file_format):
+    try:
+        export_file = generate_export(dataset, file_format)
+    except ExportRequestError:
+        return clarification_response(
+            "请从商品、客户、供应商、当前库存、库存流水、采购订单、销售订单、应收账款或应付账款中指定一个数据集，并选择 Excel 或 PDF。"
+        )
+
+    token = store_export_artifact(export_file)
+    return message_response(
+        f"已生成{export_file.filename}，请使用下方链接下载。",
+        data={
+            "download_url": url_for("exports.download_assistant_export", token=token),
+            "filename": export_file.filename,
+        },
     )

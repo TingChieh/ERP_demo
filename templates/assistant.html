@@ -5,26 +5,32 @@
 {% block content %}
 <section class="assistant-page surface-page" data-page-type="assistant">
   <div class="page-header">
-    <div><p class="eyebrow">AI WORKSPACE</p><h1>AI ERP 助手</h1><p class="page-description">用自然语言查询 ERP，订单创建会先生成预览。</p></div>
+    <div><p class="eyebrow">AI WORKSPACE</p><h1>AI ERP 助手</h1><p class="page-description">用自然语言查询和导出 ERP 数据，也可以上传 PDF 或 Excel 进行解读；订单创建会先生成预览。</p></div>
     <span class="status-pill status-pill--info">DeepSeek Agent</span>
   </div>
 
   <div id="assistant-chat" class="assistant-chat surface-card" aria-live="polite">
-    <div class="assistant-empty text-muted">你好，我可以帮你查询库存、未收应收，或生成采购/销售订单预览。</div>
+    <div class="assistant-empty text-muted">你好，我可以帮你查询库存、未收应收、导出业务数据、解读 PDF/XLSX，或生成采购/销售订单预览。</div>
   </div>
 
   <div id="assistant-examples" class="assistant-examples">
     <button class="assistant-example chip" type="button">查一下机械键盘库存</button>
     <button class="assistant-example chip" type="button">向南京键盘供应商采购 100 个机械键盘，80 一个</button>
     <button class="assistant-example chip" type="button">大圣科技买 20 个机械键盘，120 一个</button>
-    <button class="assistant-example chip" type="button">现在还有哪些客户没付款</button>
+    <button class="assistant-example chip" type="button">导出当前库存 Excel</button>
+    <button class="assistant-example chip" type="button">把未收应收导出成 PDF</button>
   </div>
 
   <form id="assistant-form" class="assistant-composer surface-card">
     <label class="form-label" for="assistant-input">告诉 AI ERP Assistant 你要做什么</label>
     <div class="assistant-input-row">
-      <input id="assistant-input" name="message" class="form-control" autocomplete="off" placeholder="例如：查一下机械键盘库存" value="{{ prompt }}" required>
+      <input id="assistant-input" name="message" class="form-control" autocomplete="off" placeholder="例如：查库存、导出应收 PDF，或提问附件" value="{{ prompt }}">
       <button class="btn btn-primary" type="submit">发送</button>
+    </div>
+    <div class="assistant-document-upload">
+      <label class="form-label" for="assistant-document">解读 PDF 或 Excel</label>
+      <input id="assistant-document" name="document" class="form-control" type="file" accept=".pdf,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <p class="assistant-document-disclosure">提取的文字会发送给 DeepSeek 解读，原文件不会保留。支持可搜索 PDF 和 .xlsx；暂不支持扫描版 PDF OCR 或旧版 .xls。超大工作表区域可能需要精简后再上传。</p>
     </div>
   </form>
 </section>

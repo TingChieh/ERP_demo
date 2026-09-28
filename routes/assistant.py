@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, ses
 from agent.schemas import error_response, message_response
 from agent.service import AgentService
 from agent.tools import confirm_purchase_order, confirm_sales_order
+from services.document_analysis import DocumentInputError, extract_document_text
 
 
 assistant_bp = Blueprint("assistant", __name__, url_prefix="/assistant")
@@ -54,6 +55,31 @@ def assistant_message():
         }
         response.confirmation_token = token
     return jsonify(response.to_dict())
+
+
+@assistant_bp.post("/document")
+def assistant_document():
+    uploads = request.files.getlist("document")
+    if len(uploads) != 1 or not uploads[0].filename:
+        return jsonify(error_response("请先选择 PDF 或 XLSX 文件。").to_dict()), 400
+
+    try:
+        uploaded = uploads[0]
+        document_text = extract_document_text(uploaded.filename, uploaded.stream)
+        response = _agent_service().interpret_document(
+            request.form.get("question", ""), document_text
+        )
+    except DocumentInputError as exc:
+        return jsonify(error_response(str(exc)).to_dict()), 400
+    except Exception:
+        current_app.logger.exception("AI document interpretation request failed")
+        return jsonify(error_response("文件解读失败，请稍后重试。").to_dict()), 500
+    return jsonify(response.to_dict())
+
+
+@assistant_bp.errorhandler(413)
+def assistant_request_too_large(_error):
+    return jsonify(error_response("文件过大，请上传 10 MiB 以内的文件。").to_dict()), 413
 
 
 @assistant_bp.post("/confirm")

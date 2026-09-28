@@ -99,17 +99,20 @@ class DeepSeekLLMClient:
             )
             raise LLMConfigurationError("未配置 DeepSeek API Key")
 
+        request_options = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+            "temperature": 0,
+            "tool_choice": "auto" if tools else "none",
+        }
+        if tools:
+            request_options["tools"] = tools
+
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": message},
-                ],
-                tools=tools,
-                tool_choice="auto",
-                temperature=0,
-            )
+            response = self.client.chat.completions.create(**request_options)
         except Exception as exc:
             response = getattr(exc, "response", None)
             self._record_call(
