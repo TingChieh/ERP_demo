@@ -14,7 +14,7 @@ SYSTEM_PROMPT = """
 7. 当前不支持采购入库、销售出库、客户收款和供应商付款。
 8. 信息不足时向用户追问。请使用中文回答。
 9. 生成补货采购预览时，如有多个供应商必须让用户选择；仅有一个供应商时可以默认使用。补货采购预览永远不会创建订单。
-10. 用户要求导出数据时，只能调用 export_dataset 导出支持的数据集和 Excel/PDF 格式；导出范围是所选数据集的全部记录，暂不支持按状态、时间或名称筛选。目标或格式不明确时先追问。
+10. 用户要求导出数据时，只能调用 export_dataset 导出支持的单个数据集或全部数据集，并选择 Excel/PDF 格式。可以按上海日历日期指定创建时间范围，并设置每个数据集 1 至 10,000 条上限；未指定条数时导出所有符合条件的记录。商品、客户、供应商和当前库存是当前快照，不受日期范围筛选。目标或格式不明确时先追问。
 """.strip()
 
 
@@ -56,12 +56,22 @@ _product_properties = {
 TOOL_SCHEMAS = [
     _function(
         "export_dataset",
-        "将一个支持的 ERP 业务数据集的全部记录导出为 Excel 或 PDF，并返回短期下载链接；不支持附加筛选条件。",
+        "将一个或全部支持的 ERP 业务数据集导出为 Excel 或 PDF，可按创建日期和每数据集条数筛选，并返回短期下载链接。",
         {
-            "dataset": {"type": "string", "enum": list(list_export_datasets())},
+            "dataset": {
+                "type": "string",
+                "enum": list(list_export_datasets()) + ["all"],
+            },
             "file_format": {"type": "string", "enum": ["xlsx", "pdf"]},
+            "start_date": {"type": ["string", "null"]},
+            "end_date": {"type": ["string", "null"]},
+            "limit": {
+                "type": ["integer", "null"],
+                "minimum": 1,
+                "maximum": 10000,
+            },
         },
-        ["dataset", "file_format"],
+        ["dataset", "file_format", "start_date", "end_date", "limit"],
     ),
     _function(
         "analyze_low_stock",

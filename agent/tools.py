@@ -529,12 +529,20 @@ def get_unpaid_receivables(*, customer_name=None):
     )
 
 
-def export_dataset(*, dataset, file_format):
+def export_dataset(
+    *, dataset, file_format, start_date=None, end_date=None, limit=None
+):
     try:
-        export_file = generate_export(dataset, file_format)
-    except ExportRequestError:
+        export_file = generate_export(
+            dataset,
+            file_format,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+        )
+    except ExportRequestError as error:
         return clarification_response(
-            "请从商品、客户、供应商、当前库存、库存流水、采购订单、销售订单、应收账款或应付账款中指定一个数据集，并选择 Excel 或 PDF。"
+            f"导出条件无效：{error}支持商品、客户、供应商、当前库存、库存流水、采购订单、销售订单、应收账款、应付账款或全部数据；格式请选择 Excel 或 PDF。"
         )
 
     token = store_export_artifact(export_file)

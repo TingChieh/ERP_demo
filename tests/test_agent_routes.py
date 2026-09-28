@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
 
 from agent.llm import MockLLMClient
+from agent.prompts import TOOL_SCHEMAS
 from agent.schemas import ToolCall
 from app import create_app
 from models import (
@@ -167,6 +170,45 @@ def test_assistant_page_returns_200(app):
     assert response.status_code == 200
     assert "AI ERP Assistant" in response.get_data(as_text=True)
     assert "查一下机械键盘库存" in response.get_data(as_text=True)
+
+
+def test_assistant_exports_all_data_with_shared_filter_arguments(app):
+    export_schema = next(
+        tool["function"] for tool in TOOL_SCHEMAS
+        if tool["function"]["name"] == "export_dataset"
+    )
+    properties = export_schema["parameters"]["properties"]
+    assert "all" in properties["dataset"]["enum"]
+    assert export_schema["parameters"]["required"] == [
+        "dataset", "file_format", "start_date", "end_date", "limit"
+    ]
+    assert properties["limit"]["type"] == ["integer", "null"]
+
+    set_llm(
+        app,
+        ToolCall(
+            name="export_dataset",
+            arguments={
+                "dataset": "all",
+                "file_format": "xlsx",
+                "start_date": None,
+                "end_date": None,
+                "limit": 2,
+            },
+        ),
+    )
+    client = app.test_client()
+    response = client.post(
+        "/assistant/message", json={"message": "导出全部数据为 Excel"}
+    )
+
+    assert response.status_code == 200
+    assert response.json["type"] == "message"
+    assert response.json["data"]["filename"].startswith("all_data_")
+    download = client.get(response.json["data"]["download_url"])
+    workbook = load_workbook(BytesIO(download.data), read_only=True)
+    assert download.status_code == 200
+    assert len(workbook.sheetnames) == 9
 
 
 def test_assistant_message_returns_verified_inventory_result(app, master_data):

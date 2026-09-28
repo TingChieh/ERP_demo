@@ -16,6 +16,7 @@ from models import (
 from agent.tools import (
     confirm_purchase_order,
     confirm_sales_order,
+    export_dataset,
     get_inventory,
     get_unpaid_receivables,
     prepare_purchase_order,
@@ -96,6 +97,36 @@ def test_get_inventory_returns_real_product_stock(app, master_data):
         assert "80" in response.content
         assert response.data["sku"] == "KB001"
         assert response.data["stock"] == 80
+
+
+def test_export_dataset_generates_all_data_download_with_filters(app):
+    with app.test_request_context("/assistant/message"):
+        response = export_dataset(
+            dataset="all",
+            file_format="xlsx",
+            start_date="2026-09-28",
+            end_date=None,
+            limit=3,
+        )
+
+        assert response.type == "message"
+        assert response.data["filename"].startswith("all_data_")
+        assert response.data["download_url"].startswith("/exports/download/")
+
+
+def test_export_dataset_clarifies_invalid_filters_without_creating_download(app):
+    with app.app_context():
+        response = export_dataset(
+            dataset="sales_orders",
+            file_format="pdf",
+            start_date="2026-09-29",
+            end_date="2026-09-28",
+            limit=None,
+        )
+
+        assert response.type == "clarification"
+        assert "开始日期不能晚于结束日期" in response.message
+        assert response.data is None
 
 
 def test_get_inventory_does_not_fabricate_missing_product(app, master_data):
