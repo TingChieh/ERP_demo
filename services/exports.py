@@ -14,7 +14,13 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+)
 from sqlalchemy.orm import joinedload, selectinload
 
 from models import (
@@ -34,6 +40,7 @@ from models import (
 XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PDF_MIME_TYPE = "application/pdf"
 MONEY_FORMAT = '¥#,##0.00;[Red]-¥#,##0.00'
+ALL_DATASET_ID = "all"
 STATUS_LABELS = {
     "draft": "草稿",
     "pending_receipt": "待入库",
@@ -423,6 +430,13 @@ def list_export_datasets():
     return tuple(DATASETS)
 
 
+def export_dataset_options():
+    return tuple(
+        (specification.dataset_id, specification.title, specification.supports_date_filter)
+        for specification in DATASETS.values()
+    )
+
+
 def get_export_rows(dataset, filters=None):
     specification = DATASETS.get(dataset)
     if specification is None:
@@ -436,9 +450,7 @@ def _literal_text_cell(worksheet, row, column, value):
     return cell
 
 
-def _render_xlsx(specification, rows):
-    workbook = Workbook()
-    worksheet = workbook.active
+def _write_xlsx_sheet(worksheet, specification, rows):
     worksheet.title = specification.title[:31]
     column_count = len(specification.columns)
     worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=column_count)
@@ -456,6 +468,15 @@ def _render_xlsx(specification, rows):
         worksheet.column_dimensions[cell.column_letter].width = min(
             max(len(column.label) * 2 + 4, 14), 42
         )
+
+    if not rows:
+        worksheet.merge_cells(
+            start_row=3,
+            start_column=1,
+            end_row=3,
+            end_column=column_count,
+        )
+        _literal_text_cell(worksheet, 3, 1, "没有符合条件的记录")
 
     for row_index, row_values in enumerate(rows, start=3):
         for column_index, (column, value) in enumerate(
@@ -483,69 +504,38 @@ def _render_xlsx(specification, rows):
     last_row = max(2, worksheet.max_row)
     last_column = worksheet.cell(row=last_row, column=column_count).coordinate
     worksheet.auto_filter.ref = f"A2:{last_column}"
+    return worksheet
+
+
+def _render_xlsx(specification, rows):
+    workbook = Workbook()
+    _write_xlsx_sheet(workbook.active, specification, rows)
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
 
 
-def _register_pdf_font():
-    font_name = "STSong-Light"
-    try:
-        pdfmetrics.getFont(font_name)
-    except KeyError:
-        pdfmetrics.registerFont(UnicodeCIDFont(font_name))
-    return font_name
-
-
-def _render_pdf(specification, rows):
-    font_name = _register_pdf_font()
-    page_size = landscape(A4) if len(specification.columns) > 5 else A4
+def _render_all_xlsx(results):
+    workbook = Workbook()
+    for index, (specification, rows) in enumerate(results):
+        worksheet = workbook.active if index == 0 else workbook.create_sheet()
+        _write_xlsx_sheet(worksheet, specification, rows)
     output = BytesIO()
-    document = SimpleDocTemplate(
-        output,
-        pagesize=page_size,
-        leftMargin=12 * mm,
-        rightMargin=12 * mm,
-        topMargin=14 * mm,
-        bottomMargin=14 * mm,
-        title=specification.title,
-    )
-    title_style = ParagraphStyle(
-        "ExportTitle",
-        fontName=font_name,
-        fontSize=15,
-        leading=20,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor("#243B53"),
-        spaceAfter=8 * mm,
-    )
-    cell_style = ParagraphStyle(
-        "ExportCell",
-        fontName=font_name,
-        fontSize=7.5,
-        leading=10,
-        alignment=TA_LEFT,
-        wordWrap="CJK",
-    )
-    header_style = ParagraphStyle(
-        "ExportHeader",
-        parent=cell_style,
-        fontSize=8,
-        leading=11,
-        alignment=TA_CENTER,
-        textColor=colors.white,
-    )
+    workbook.save(output)
+    return output.getvalue()
+
+
+def _table_for_dataset(specification, rows, available_width, cell_style, header_style):
     table_rows = [
         [Paragraph(escape(column.label), header_style) for column in specification.columns]
     ]
-    for row_values in rows:
-        table_rows.append(
-            [
-                Paragraph(escape("" if value is None else str(value)), cell_style)
-                for value in row_values
-            ]
-        )
-    available_width = page_size[0] - document.leftMargin - document.rightMargin
+    table_rows.extend(
+        [
+            Paragraph(escape("" if value is None else str(value)), cell_style)
+            for value in row_values
+        ]
+        for row_values in rows
+    )
     table = Table(
         table_rows,
         colWidths=[available_width / len(specification.columns)] * len(specification.columns),
@@ -566,24 +556,140 @@ def _render_pdf(specification, rows):
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F6F8FA")])
         )
     table.setStyle(TableStyle(table_styles))
-    document.build([Paragraph(escape(specification.title), title_style), Spacer(1, 1 * mm), table])
+    return table
+
+
+def _render_pdf_sections(results, report_title=None):
+    font_name = _register_pdf_font()
+    page_size = landscape(A4) if any(
+        len(specification.columns) > 5 for specification, _ in results
+    ) else A4
+    output = BytesIO()
+    document = SimpleDocTemplate(
+        output,
+        pagesize=page_size,
+        leftMargin=12 * mm,
+        rightMargin=12 * mm,
+        topMargin=14 * mm,
+        bottomMargin=14 * mm,
+        title=report_title or results[0][0].title,
+    )
+    title_style = ParagraphStyle(
+        "ExportTitle",
+        fontName=font_name,
+        fontSize=15,
+        leading=20,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#243B53"),
+        spaceAfter=8 * mm,
+    )
+    section_title_style = ParagraphStyle(
+        "ExportSectionTitle",
+        parent=title_style,
+        fontSize=12,
+        leading=16,
+        alignment=TA_LEFT,
+        spaceAfter=4 * mm,
+    )
+    cell_style = ParagraphStyle(
+        "ExportCell",
+        fontName=font_name,
+        fontSize=7.5,
+        leading=10,
+        alignment=TA_LEFT,
+        wordWrap="CJK",
+    )
+    header_style = ParagraphStyle(
+        "ExportHeader",
+        parent=cell_style,
+        fontSize=8,
+        leading=11,
+        alignment=TA_CENTER,
+        textColor=colors.white,
+    )
+    note_style = ParagraphStyle(
+        "ExportSnapshotNote",
+        parent=cell_style,
+        fontSize=8,
+        textColor=colors.HexColor("#52606D"),
+        spaceAfter=2 * mm,
+    )
+    available_width = page_size[0] - document.leftMargin - document.rightMargin
+    story = []
+    if report_title:
+        story.append(Paragraph(escape(report_title), title_style))
+    for index, (specification, rows) in enumerate(results):
+        if index:
+            story.append(PageBreak())
+        story.append(Paragraph(escape(specification.title), section_title_style))
+        if not specification.supports_date_filter:
+            story.append(Paragraph("当前快照，日期范围不适用", note_style))
+        if rows:
+            story.append(
+                _table_for_dataset(
+                    specification, rows, available_width, cell_style, header_style
+                )
+            )
+        else:
+            story.append(Paragraph("没有符合条件的记录", cell_style))
+    document.build(story)
     return output.getvalue()
 
 
-def generate_export(dataset, file_format):
+def _render_pdf(specification, rows):
+    return _render_pdf_sections([(specification, rows)])
+
+
+def _render_all_pdf(results):
+    return _render_pdf_sections(results, "ERP 全量数据导出")
+
+
+def generate_export(
+    dataset,
+    file_format,
+    *,
+    start_date=None,
+    end_date=None,
+    limit=None,
+):
     if file_format not in {"xlsx", "pdf"}:
         raise ExportRequestError("导出格式仅支持 Excel 或 PDF。")
-    specification, rows = get_export_rows(dataset)
-    content = (
-        _render_xlsx(specification, rows)
-        if file_format == "xlsx"
-        else _render_pdf(specification, rows)
-    )
+    filters = parse_export_filters(start_date, end_date, limit)
+    if dataset == ALL_DATASET_ID:
+        results = [get_export_rows(key, filters) for key in DATASETS]
+    else:
+        results = [get_export_rows(dataset, filters)]
+
+    if file_format == "xlsx":
+        content = (
+            _render_all_xlsx(results)
+            if dataset == ALL_DATASET_ID
+            else _render_xlsx(*results[0])
+        )
+        extension = "xlsx"
+        mime_type = XLSX_MIME_TYPE
+    else:
+        content = (
+            _render_all_pdf(results)
+            if dataset == ALL_DATASET_ID
+            else _render_pdf(*results[0])
+        )
+        extension = "pdf"
+        mime_type = PDF_MIME_TYPE
+
     today = datetime.now().strftime("%Y%m%d")
-    extension = "xlsx" if file_format == "xlsx" else "pdf"
-    mime_type = XLSX_MIME_TYPE if file_format == "xlsx" else PDF_MIME_TYPE
+    filename_prefix = "all_data" if dataset == ALL_DATASET_ID else dataset
     return ExportFile(
         content=content,
-        filename=f"{specification.dataset_id}_{today}.{extension}",
+        filename=f"{filename_prefix}_{today}.{extension}",
         mime_type=mime_type,
     )
+
+
+def _register_pdf_font():
+    font_name = "STSong-Light"
+    try:
+        pdfmetrics.getFont(font_name)
+    except KeyError:
+        pdfmetrics.registerFont(UnicodeCIDFont(font_name))
+    return font_name

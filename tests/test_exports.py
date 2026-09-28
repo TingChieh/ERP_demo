@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
+from pypdf import PdfReader
 
 from app import create_app
 from models import Customer, Product, SalesOrder, db
@@ -113,3 +116,49 @@ def test_snapshot_dataset_ignores_dates_but_applies_limit(app):
 
         assert specification.supports_date_filter is False
         assert [row[1] for row in rows] == ["P-NEW"]
+
+
+def test_all_xlsx_has_one_sheet_for_each_dataset_in_fixed_order(app):
+    with app.app_context():
+        export_file = exports.generate_export("all", "xlsx")
+        workbook = load_workbook(BytesIO(export_file.content), read_only=True)
+
+        assert workbook.sheetnames == [
+            dataset.title for dataset in exports.DATASETS.values()
+        ]
+        assert export_file.mime_type == exports.XLSX_MIME_TYPE
+        assert export_file.filename.startswith("all_data_")
+
+
+def test_empty_xlsx_sheet_includes_a_clear_empty_result_message(app):
+    with app.app_context():
+        export_file = exports.generate_export("products", "xlsx")
+        workbook = load_workbook(BytesIO(export_file.content), read_only=True)
+
+        assert workbook.active["A3"].value == "没有符合条件的记录"
+
+
+def test_all_pdf_is_one_report_with_sections_and_snapshot_notes(app):
+    with app.app_context():
+        export_file = exports.generate_export("all", "pdf")
+        reader = PdfReader(BytesIO(export_file.content))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+
+        assert export_file.content.startswith(b"%PDF-")
+        assert export_file.mime_type == exports.PDF_MIME_TYPE
+        assert export_file.filename.startswith("all_data_")
+        assert all(dataset.title in text for dataset in exports.DATASETS.values())
+        assert "当前快照，日期范围不适用" in text
+        assert "没有符合条件的记录" in text
+
+
+def test_single_snapshot_pdf_discloses_that_dates_do_not_apply(app):
+    with app.app_context():
+        export_file = exports.generate_export(
+            "products", "pdf", start_date="2026-09-28", end_date="2026-09-28"
+        )
+        text = "\n".join(
+            page.extract_text() or "" for page in PdfReader(BytesIO(export_file.content)).pages
+        )
+
+        assert "当前快照，日期范围不适用" in text
