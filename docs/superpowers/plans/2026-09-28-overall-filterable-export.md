@@ -1,6 +1,6 @@
 # ERP 全量与筛选导出 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 增加一个网页与 AI 共用的导出能力，可把一个或全部九类 ERP 数据导出为 Excel/PDF，并按创建日期和每数据集条数筛选。
 
@@ -48,7 +48,7 @@
 - Changes each `ExportDataset.query_rows` to accept `(filters: ExportFilters) -> list[tuple[object, ...]]` and adds `supports_date_filter: bool`.
 - Changes `get_export_rows(dataset: str, filters: ExportFilters | None = None) -> tuple[ExportDataset, list[tuple[object, ...]]]`.
 
-- [ ] **Step 1: Add tests for inclusive Shanghai dates and optional boundaries**
+- [x] **Step 1: Add tests for inclusive Shanghai dates and optional boundaries**
 
 In `tests/test_exports.py`, create an app fixture using a temporary SQLite database, then add:
 
@@ -69,12 +69,12 @@ def test_parse_export_filters_keeps_a_single_date_boundary():
     assert filters.limit is None
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the new interface is missing**
+- [x] **Step 2: Run the focused tests and confirm the new interface is missing**
 
 Run: `python -m pytest tests/test_exports.py -q`
 Expected: collection or assertion failure because `parse_export_filters` and `ExportFilters` are not implemented yet.
 
-- [ ] **Step 3: Implement the validated filter value and UTC conversion**
+- [x] **Step 3: Implement the validated filter value and UTC conversion**
 
 In `services/exports.py`, add imports for `date`, `datetime`, `time`, `timedelta`, `timezone`, and `ZoneInfo`, plus:
 
@@ -139,16 +139,16 @@ def parse_export_filters(start_date, end_date, limit):
     )
 ```
 
-- [ ] **Step 4: Add query-level tests for date range, latest-first limit, and snapshot behavior**
+- [x] **Step 4: Add query-level tests for date range, latest-first limit, and snapshot behavior**
 
 Seed three `SalesOrder` rows with explicit UTC `created_at` values around 2026-09-28 Shanghai time. Assert a one-day filter plus `limit=1` returns the newest eligible order. Seed products with ascending IDs and assert a date filter does not remove them from `products`, while `limit=1` still returns one product.
 
-- [ ] **Step 5: Run the query tests and confirm they fail before implementation**
+- [x] **Step 5: Run the query tests and confirm they fail before implementation**
 
 Run: `python -m pytest tests/test_exports.py -q`
 Expected: failures because dataset callbacks still take no filters and the rows are not date-filtered or capped.
 
-- [ ] **Step 6: Extend dataset callbacks to filter and cap within SQL**
+- [x] **Step 6: Extend dataset callbacks to filter and cap within SQL**
 
 Give every callback the signature `query_rows(filters: ExportFilters)`. For each timestamp dataset, build its existing eager-loaded query, add `.filter(Model.created_at >= filters.start_at)` when `start_at` is present, add `.filter(Model.created_at < filters.end_before)` when `end_before` is present, order by `.order_by(Model.created_at.desc(), Model.id.desc())`, apply `.limit(filters.limit)` when present, then call `.all()`. For products, customers, suppliers and inventory, keep their existing stable ordering, skip date predicates, and apply `.limit(filters.limit)` before `.all()`. Mark exactly the five timestamp datasets with `supports_date_filter=True`.
 
@@ -169,11 +169,11 @@ def _apply_limit(query, filters):
 
 For example, `_sales_order_rows(filters)` keeps the current eager loads and ends with `_apply_limit(_created_at_query(query, SalesOrder, filters), filters).all()`. `_product_rows(filters)` keeps `order_by(Product.id.desc())` and ends with `_apply_limit(query, filters).all()`.
 
-- [ ] **Step 8: Commit the independently verified service/query change**
+- [x] **Step 8: Commit the independently verified service/query change**
 
 Run `git add services/exports.py tests/test_exports.py && git commit -m "feat: add export date and row filters"` after the focused test command passes.
 
-- [ ] **Step 7: Run the service tests and confirm all filter behaviors pass**
+- [x] **Step 7: Run the service tests and confirm all filter behaviors pass**
 
 Run: `python -m pytest tests/test_exports.py -q`
 Expected: PASS for date parsing, invalid reversed dates, invalid counts, timestamp filtering, latest-first limits, and snapshots unaffected by dates.
@@ -189,16 +189,16 @@ Expected: PASS for date parsing, invalid reversed dates, invalid counts, timesta
 - Changes `generate_export(dataset: str, file_format: str, *, start_date: str | None = None, end_date: str | None = None, limit: str | int | None = None) -> ExportFile` to support either one whitelisted dataset or `all`.
 - Preserves `list_export_datasets() -> tuple[str, ...]` as the nine concrete IDs; `all` is a selection operation, not a tenth data set.
 
-- [ ] **Step 1: Add tests that inspect all-workbook sheet names and empty datasets**
+- [x] **Step 1: Add tests that inspect all-workbook sheet names and empty datasets**
 
 Add a test that calls `generate_export("all", "xlsx")`, loads `ExportFile.content` with `openpyxl.load_workbook(BytesIO(...), read_only=True)`, and asserts sheet titles appear in `DATASETS` insertion order and all nine sheets exist. Add a test that an empty dataset workbook contains its title/header and a clear empty-result message.
 
-- [ ] **Step 2: Run the workbook tests and confirm the all selector currently fails**
+- [x] **Step 2: Run the workbook tests and confirm the all selector currently fails**
 
 Run: `python -m pytest tests/test_exports.py -q`
 Expected: `ExportRequestError` for `all` or missing worksheets.
 
-- [ ] **Step 3: Extract one-sheet rendering and add all-dataset workbook generation**
+- [x] **Step 3: Extract one-sheet rendering and add all-dataset workbook generation**
 
 Refactor `_render_xlsx(specification, rows)` into `_write_xlsx_sheet(worksheet, specification, rows)`, which writes one named worksheet into a supplied worksheet. Keep the existing formatting, add a literal text row `没有符合条件的记录` when `rows` is empty, and let `_render_xlsx` create a workbook and call the helper on `workbook.active`. For `dataset == "all"`, use the default active worksheet for the first dataset, call `workbook.create_sheet()` for each remaining dataset, write each sheet, and save once. Keep each worksheet title within Excel's 31-character limit.
 
@@ -256,16 +256,16 @@ def _write_xlsx_sheet(worksheet, specification, rows):
 
 Move the existing title/header/data loops directly into this function rather than introducing another abstraction; do not change established styles or literal-text handling.
 
-- [ ] **Step 4: Add PDF tests for one merged report with dataset section names**
+- [x] **Step 4: Add PDF tests for one merged report with dataset section names**
 
 Call `generate_export("all", "pdf")` and assert content starts with `%PDF-`. Extract PDF text with `pypdf.PdfReader(BytesIO(content))` and assert it contains all nine section titles, table headers, a clear empty-result message for an empty dataset, and `当前快照，日期范围不适用` for an unfilterable dataset.
 
-- [ ] **Step 5: Run the PDF tests and confirm they fail for the all selector**
+- [x] **Step 5: Run the PDF tests and confirm they fail for the all selector**
 
 Run: `python -m pytest tests/test_exports.py -q`
 Expected: failure until the multi-section renderer exists.
 
-- [ ] **Step 6: Add a multi-section PDF renderer using the existing ReportLab styles**
+- [x] **Step 6: Add a multi-section PDF renderer using the existing ReportLab styles**
 
 Refactor the current PDF construction into one shared section renderer for both single and all-dataset PDFs. Use one landscape report page size if any selected dataset has more than five columns; otherwise use portrait A4. Before each section, render its dataset title, add the snapshot note for datasets with `supports_date_filter=False`, render `没有符合条件的记录` when empty, and use `Table(..., repeatRows=1)` so column headers repeat on page breaks. Thus a single snapshot PDF also carries its snapshot note. Preserve the existing escaping and embedded Chinese font behavior.
 
@@ -288,7 +288,7 @@ for index, (specification, rows) in enumerate(results):
 document.build(story)
 ```
 
-- [ ] **Step 7: Implement shared argument validation, filenames, and metadata options**
+- [x] **Step 7: Implement shared argument validation, filenames, and metadata options**
 
 Validate `file_format` before querying. Parse filters once with `parse_export_filters`; for a concrete dataset call `get_export_rows` once; for `all`, iterate `DATASETS` in order and collect each `(specification, rows)` result. Name concrete exports `<dataset_id>_YYYYMMDD.<ext>` and all exports `all_data_YYYYMMDD.<ext>`. Implement `export_dataset_options()` from the ordered dataset specs, including date-filter support for the UI.
 
@@ -318,12 +318,12 @@ def generate_export(dataset, file_format, *, start_date=None, end_date=None, lim
 
 `get_export_rows` must reject an unknown concrete ID before calling a query callback. `_render_all_xlsx(results)` writes one sheet per result; `_render_pdf(specification, rows)` and `_render_all_pdf(results)` both delegate to `_render_pdf_sections(results, report_title)`, which writes one section for a single dataset and one section per result for `all`.
 
-- [ ] **Step 8: Run all exporter tests and confirm both formats and filters pass**
+- [x] **Step 8: Run all exporter tests and confirm both formats and filters pass**
 
 Run: `python -m pytest tests/test_exports.py -q`
 Expected: PASS for single/all Excel/PDF, order, dates, row limits, snapshots, empty datasets, MIME type, and filenames.
 
-- [ ] **Step 9: Commit the independently verified rendering change**
+- [x] **Step 9: Commit the independently verified rendering change**
 
 Run `git add services/exports.py tests/test_exports.py && git commit -m "feat: export all ERP datasets to xlsx and pdf"` after the focused exporter tests pass.
 
@@ -341,16 +341,16 @@ Run `git add services/exports.py tests/test_exports.py && git commit -m "feat: e
 - `POST /exports/` reads `dataset`, `file_format`, `start_date`, `end_date`, and `limit`, calls `generate_export`, and returns the attachment.
 - Existing `GET /exports/<dataset>/<file_format>` remains an unfiltered full export for one concrete dataset.
 
-- [ ] **Step 1: Add route tests for form rendering, valid POST download, and retained shortcut behavior**
+- [x] **Step 1: Add route tests for form rendering, valid POST download, and retained shortcut behavior**
 
 In `tests/test_exports_routes.py`, use the existing temporary-database app fixture pattern. Assert `GET /exports/` displays all dataset options and the snapshot warning. POST `dataset=all`, `file_format=xlsx`, `start_date=2026-09-28`, and `limit=25`; assert status 200, XLSX MIME type, and attachment disposition. Assert `GET /exports/products/xlsx` still returns a full export.
 
-- [ ] **Step 2: Run route tests and confirm the unified page does not yet exist**
+- [x] **Step 2: Run route tests and confirm the unified page does not yet exist**
 
 Run: `python -m pytest tests/test_exports_routes.py -q`
 Expected: 404 for `GET /exports/` and missing form/download behavior.
 
-- [ ] **Step 3: Add the GET page and POST download endpoints**
+- [x] **Step 3: Add the GET page and POST download endpoints**
 
 In `routes/exports.py`, import `request`, `render_template`, and `export_dataset_options`. Add GET `/` rendering `templates/exports/index.html`. Add POST `/` that calls `generate_export` with the five posted values; on `ExportRequestError`, re-render the form with the message and status 400; on unexpected errors, log the exception and render a generic retry message with status 500. Return valid files through `send_file(BytesIO(...), as_attachment=True, download_name=..., mimetype=...)`. Keep both existing download endpoints intact.
 
@@ -393,7 +393,7 @@ def create_export():
                      download_name=export_file.filename, mimetype=export_file.mime_type)
 ```
 
-- [ ] **Step 4: Add the form template and both navigation links**
+- [x] **Step 4: Add the form template and both navigation links**
 
 Create `templates/exports/index.html` extending `base.html`; include a `method="post"` form, a data set select with `all` followed by the nine options, `.xlsx`/PDF format choices, native `date` inputs, a numeric count input with `min="1" max="10000" step="1"`, an empty-means-unlimited note, the four snapshot datasets named explicitly, and an accessible error region. Add a desktop and mobile “数据导出” navigation link to `url_for('exports.export_page')`, with active state keyed to `exports.export_page` or `exports.create_export`.
 
@@ -420,20 +420,20 @@ The template form must submit these exact names so route and AI arguments line u
 
 Use the current `surface-card`, `form-control`, and Bootstrap button classes around these controls; show validation text in `<p role="alert">`.
 
-- [ ] **Step 5: Add page and active-navigation layout assertions**
+- [x] **Step 5: Add page and active-navigation layout assertions**
 
 Add `("/exports/", "exports.export_page")` to shared-shell page coverage in `tests/test_ui_layout.py`; assert both desktop/mobile links point to `/exports/` and the selected export page marks exactly its two responsive nav links active.
 
-- [ ] **Step 6: Add invalid request tests and confirm the form remains usable**
+- [x] **Step 6: Add invalid request tests and confirm the form remains usable**
 
 POST a reversed date range and a count of `10001`; assert status 400, an understandable validation message, and that the response contains the `method="post"` export form. POST an unknown dataset and unknown format and assert they are rejected without creating an attachment.
 
-- [ ] **Step 7: Run focused route and layout tests**
+- [x] **Step 7: Run focused route and layout tests**
 
 Run: `python -m pytest tests/test_exports_routes.py tests/test_ui_layout.py -q`
 Expected: PASS, while existing direct list shortcuts continue returning full datasets.
 
-- [ ] **Step 8: Commit the independently verified page and route change**
+- [x] **Step 8: Commit the independently verified page and route change**
 
 Run `git add routes/exports.py templates/exports/index.html templates/base.html tests/test_exports_routes.py tests/test_ui_layout.py && git commit -m "feat: add unified export page"` after the focused tests pass.
 
@@ -449,16 +449,16 @@ Run `git add routes/exports.py templates/exports/index.html templates/base.html 
 - `export_dataset(*, dataset: str, file_format: str, start_date: str | None = None, end_date: str | None = None, limit: int | None = None) -> AgentResponse`.
 - AI schema enum is the nine concrete dataset IDs plus `all`; the date and limit keys are required in strict schema but permit `null`.
 
-- [ ] **Step 1: Add direct AI-tool tests for filtered all-export and invalid conditions**
+- [x] **Step 1: Add direct AI-tool tests for filtered all-export and invalid conditions**
 
 In `tests/test_agent_tools.py`, call `export_dataset(dataset="all", file_format="xlsx", start_date="2026-09-28", end_date=None, limit=3)` inside the app context; assert the response includes a short-lived download URL and a filename beginning `all_data_`. Call it with reversed dates and assert a clarification response without a download URL.
 
-- [ ] **Step 2: Run the tool tests and confirm the current signature/schema rejects new parameters**
+- [x] **Step 2: Run the tool tests and confirm the current signature/schema rejects new parameters**
 
 Run: `python -m pytest tests/test_agent_tools.py -q`
 Expected: a `TypeError` or failed assertion because the tool only accepts dataset and format.
 
-- [ ] **Step 3: Add nullable filter parameters to the strict function schema**
+- [x] **Step 3: Add nullable filter parameters to the strict function schema**
 
 In `agent/prompts.py`, change the export tool description to mention one or all data sets and date/count filters. Define `dataset` as `enum=list(list_export_datasets()) + ["all"]`, `file_format` as the existing `xlsx`/`pdf` enum, `start_date` and `end_date` as `{"type": ["string", "null"]}`, and `limit` as `{"type": ["integer", "null"], "minimum": 1, "maximum": 10000}`; mark all five keys required to retain strict-schema behavior. Update `SYSTEM_PROMPT` rule 10 to allow optional date range and per-data-set count, describe that omitted count is unlimited and snapshot data ignores dates, and ask for clarification when the requested dataset or format is ambiguous.
 
@@ -474,7 +474,7 @@ The schema property mapping is:
 }
 ```
 
-- [ ] **Step 4: Pass AI tool filters through the shared service and return clear validation guidance**
+- [x] **Step 4: Pass AI tool filters through the shared service and return clear validation guidance**
 
 Update `agent/tools.py` to accept the five exact keyword-only parameters and call `generate_export(dataset, file_format, start_date=start_date, end_date=end_date, limit=limit)`. Catch `ExportRequestError` and return a clarification response that lists all supported datasets including “全部数据” and explains invalid dates/counts; store valid `ExportFile` objects using the existing `store_export_artifact` and return its existing download URL format.
 
@@ -499,16 +499,16 @@ def export_dataset(*, dataset, file_format, start_date=None, end_date=None, limi
     )
 ```
 
-- [ ] **Step 5: Add assistant-route tests that inspect schema arguments and download artifacts**
+- [x] **Step 5: Add assistant-route tests that inspect schema arguments and download artifacts**
 
 In `tests/test_agent_routes.py`, configure `MockLLMClient` with `ToolCall(name="export_dataset", arguments={"dataset": "all", "file_format": "xlsx", "start_date": None, "end_date": None, "limit": 2})`; POST an export request to `/assistant/message`; assert response type `message`, filename begins `all_data_`, the returned same-origin path starts `/exports/download/`, and GET on that path downloads XLSX bytes.
 
-- [ ] **Step 6: Run AI export tests and preserve existing assistant behavior**
+- [x] **Step 6: Run AI export tests and preserve existing assistant behavior**
 
 Run: `python -m pytest tests/test_agent_tools.py tests/test_agent_routes.py -q`
 Expected: PASS for filtered tool arguments, all-dataset downloads, invalid filter clarification, and existing AI read/write confirmation behavior.
 
-- [ ] **Step 7: Commit the independently verified AI integration**
+- [x] **Step 7: Commit the independently verified AI integration**
 
 Run `git add agent/prompts.py agent/tools.py tests/test_agent_tools.py tests/test_agent_routes.py && git commit -m "feat: add filtered AI export requests"` after the focused tests pass.
 
@@ -518,21 +518,21 @@ Run `git add agent/prompts.py agent/tools.py tests/test_agent_tools.py tests/tes
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-09-28-overall-filterable-export.md`
 
-- [ ] **Step 1: Document the page, all-data formats, date semantics, count limit, and snapshot exception**
+- [x] **Step 1: Document the page, all-data formats, date semantics, count limit, and snapshot exception**
 
 In `README.md`, add `/exports/` to the page list and update the export capability paragraph to state that one or all supported datasets can be exported to a multi-sheet Excel or consolidated PDF, with optional inclusive Asia/Shanghai creation-date bounds and a per-dataset limit of 1–10,000; a blank limit means unlimited and master/current-inventory snapshots are not date-filtered.
 
-- [ ] **Step 2: Run all tests using the repository-supported invocation**
+- [x] **Step 2: Run all tests using the repository-supported invocation**
 
 Run: `python -m pytest -q`
 Expected: every project test passes without network or a DeepSeek API key.
 
-- [ ] **Step 3: Verify the Flask app imports and the export page is registered**
+- [x] **Step 3: Verify the Flask app imports and the export page is registered**
 
 Run: `flask --app app routes`
 Expected: route output includes `exports.export_page`, `exports.create_export`, the existing direct export route, and the AI token download route; command exits successfully, confirming the installed XLSX/PDF imports load.
 
-- [ ] **Step 4: Check the final diff and commit the feature**
+- [x] **Step 4: Check the final diff and commit the feature**
 
 Run `git diff --check`, inspect `git status --short` and `git diff --stat`, then commit the implementation and plan with:
 
