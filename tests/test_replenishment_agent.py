@@ -42,7 +42,7 @@ def app(tmp_path: Path):
 def replenishment_data(app):
     with app.app_context():
         supplier = Supplier(name="南京键盘供应商", phone="")
-        customer = Customer(name="大圣科技", phone="")
+        customer = Customer(name="xx科技", phone="")
         product = Product(
             name="机械键盘",
             sku="KB001",

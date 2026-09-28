@@ -47,7 +47,7 @@ def app(tmp_path: Path):
 def master_data(app):
     with app.app_context():
         supplier = Supplier(name="南京键盘供应商", phone="")
-        customer = Customer(name="大圣科技", phone="")
+        customer = Customer(name="xx科技", phone="")
         products = [
             Product(
                 name="机械键盘",
@@ -193,7 +193,7 @@ def test_sales_preview_uses_default_price_and_allows_insufficient_stock(
 ):
     with app.app_context():
         response = prepare_sales_order(
-            customer_name="大圣科技",
+            customer_name="xx科技",
             items=[{"product_name": "机械键盘", "quantity": 100}],
         )
 
@@ -208,7 +208,7 @@ def test_sales_confirmation_creates_draft_without_inventory_or_receivable(
 ):
     with app.app_context():
         preview = prepare_sales_order(
-            customer_name="大圣科技",
+            customer_name="xx科技",
             items=[{"product_name": "机械键盘", "quantity": 100, "unit_price": 120}],
         )
         response = confirm_sales_order(preview.payload)
@@ -237,15 +237,77 @@ def test_unpaid_receivables_can_query_all_and_by_customer(app, master_data):
                 status="unpaid",
             )
         )
+        other_customer = Customer(name="另一家科技", phone="")
+        db.session.add(other_customer)
+        db.session.flush()
+        other_order = SalesOrder(
+            order_no="SO20260921002",
+            customer_id=other_customer.id,
+            status="completed",
+            total_amount=Decimal("310.00"),
+        )
+        db.session.add(other_order)
+        db.session.flush()
+        db.session.add(
+            AccountReceivable(
+                sales_order_id=other_order.id,
+                customer_id=other_customer.id,
+                amount=Decimal("310.00"),
+                status="unpaid",
+            )
+        )
+        paid_order = SalesOrder(
+            order_no="SO20260921003",
+            customer_id=other_customer.id,
+            status="completed",
+            total_amount=Decimal("50.00"),
+        )
+        db.session.add(paid_order)
+        db.session.flush()
+        db.session.add(
+            AccountReceivable(
+                sales_order_id=paid_order.id,
+                customer_id=other_customer.id,
+                amount=Decimal("50.00"),
+                status="paid",
+            )
+        )
         db.session.commit()
 
         all_response = get_unpaid_receivables()
-        customer_response = get_unpaid_receivables(customer_name="大圣科技")
+        customer_response = get_unpaid_receivables(customer_name="xx科技")
 
         assert all_response.type == "message"
-        assert all_response.data["total_amount"] == "240.00"
-        assert len(all_response.data["items"]) == 1
+        assert all_response.data["total_amount"] == "550.00"
+        assert len(all_response.data["items"]) == 2
+        assert {item["customer"] for item in all_response.data["items"]} == {
+            "xx科技",
+            "另一家科技",
+        }
+        assert all_response.data["items"][0]["receivable_id"]
+        assert all_response.data["items"][0]["sales_order_id"]
+        assert all_response.data["items"][0]["sales_order_no"]
+        assert all_response.data["items"][0]["created_at"]
+        assert "xx科技" in all_response.content
+        assert "240.00" in all_response.content
         assert customer_response.data["total_amount"] == "240.00"
+        assert len(customer_response.data["items"]) == 1
+        assert customer_response.data["items"][0]["customer"] == "xx科技"
+
+
+def test_unpaid_receivables_with_no_records_returns_empty_read_only_result(
+    app, master_data
+):
+    with app.app_context():
+        response = get_unpaid_receivables()
+
+        assert response.type == "message"
+        assert response.content == "目前没有未收应收账款。"
+        assert response.data == {
+            "query_type": "unpaid_receivables",
+            "total_amount": "0.00",
+            "items": [],
+        }
 
 
 def test_missing_customer_blocks_sales_confirmation(app, master_data):

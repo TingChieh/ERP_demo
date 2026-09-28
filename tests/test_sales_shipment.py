@@ -37,7 +37,7 @@ def app(tmp_path: Path):
 @pytest.fixture()
 def shipment_data(app):
     with app.app_context():
-        customer = Customer(name="大圣科技", phone="")
+        customer = Customer(name="xx科技", phone="")
         keyboard = Product(
             name="机械键盘", sku="KB001", purchase_price=80, sale_price=120, stock=100
         )

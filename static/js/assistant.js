@@ -39,6 +39,50 @@
     card.appendChild(basis);
   }
 
+  function addUnpaidReceivables(response) {
+    const data = response.data;
+    if (
+      !data ||
+      data.query_type !== "unpaid_receivables" ||
+      !Array.isArray(data.items) ||
+      data.items.length === 0
+    ) return;
+
+    const card = document.createElement("div");
+    card.className = "assistant-preview surface-card assistant-preview-card";
+    addPreviewText(card, "strong", "未付款客户及应收明细");
+
+    data.items.forEach((item) => {
+      const line = document.createElement("div");
+      line.className = "assistant-preview-line";
+      addPreviewText(
+        line,
+        "div",
+        `${item.customer} · ¥${item.amount} · 产生于 ${item.created_at}`
+      );
+
+      const orderId = Number(item.sales_order_id);
+      if (Number.isInteger(orderId) && orderId > 0) {
+        const orderLink = document.createElement("a");
+        orderLink.href = `/sales-orders/${orderId}`;
+        orderLink.textContent = `销售订单 ${item.sales_order_no}`;
+        line.appendChild(orderLink);
+      } else {
+        addPreviewText(line, "span", `销售订单 ${item.sales_order_no}`);
+      }
+      card.appendChild(line);
+    });
+
+    addPreviewText(card, "div", `未收合计：¥${data.total_amount}`, "assistant-preview-total");
+    const receivablesLink = document.createElement("a");
+    receivablesLink.className = "btn btn-outline-secondary btn-sm mt-3";
+    receivablesLink.href = "/receivables";
+    receivablesLink.textContent = "查看应收账款";
+    card.appendChild(receivablesLink);
+    chat.appendChild(card);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
   function addExportDownload(response) {
     const data = response.data;
     if (!data || typeof data.download_url !== "string") return;
@@ -103,6 +147,7 @@
       return;
     }
     addBubble(response.content || response.message || "无法处理该请求。", response.type);
+    addUnpaidReceivables(response);
     addExportDownload(response);
   }
 

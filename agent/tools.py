@@ -487,6 +487,8 @@ def get_unpaid_receivables(*, customer_name=None):
 
     items = [
         {
+            "receivable_id": receivable.id,
+            "sales_order_id": receivable.sales_order_id,
             "sales_order_no": receivable.sales_order.order_no,
             "customer": receivable.customer.name,
             "amount": format_money(receivable.amount),
@@ -498,7 +500,11 @@ def get_unpaid_receivables(*, customer_name=None):
         (Decimal(str(receivable.amount)) for receivable in receivables),
         Decimal("0"),
     )
-    data = {"total_amount": format_money(total_amount), "items": items}
+    data = {
+        "query_type": "unpaid_receivables",
+        "total_amount": format_money(total_amount),
+        "items": items,
+    }
     record_database_operation(
         source="agent",
         action="get_unpaid_receivables",
@@ -508,8 +514,17 @@ def get_unpaid_receivables(*, customer_name=None):
     )
     if not items:
         return message_response("目前没有未收应收账款。", data=data)
+    item_summaries = "；".join(
+        (
+            f"{receivable.customer.name}（订单 {receivable.sales_order.order_no}，"
+            f"¥{format_money(receivable.amount)}，产生于 "
+            f"{receivable.created_at.strftime('%Y-%m-%d %H:%M')}）"
+        )
+        for receivable in receivables
+    )
     return message_response(
-        f"目前共有 {len(items)} 笔未收应收账款，总额 {format_money(total_amount)} 元。",
+        f"未付款客户及应收明细：{item_summaries}。"
+        f"共 {len(items)} 笔，总额 {format_money(total_amount)} 元。",
         data=data,
     )
 

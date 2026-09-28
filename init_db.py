@@ -28,8 +28,8 @@ def initialize_database(app):
         if Supplier.query.filter_by(name="南京键盘供应商").first() is None:
             db.session.add(Supplier(name="南京键盘供应商", phone=""))
 
-        if Customer.query.filter_by(name="大圣科技").first() is None:
-            db.session.add(Customer(name="大圣科技", phone=""))
+        if Customer.query.filter_by(name="xx科技").first() is None:
+            db.session.add(Customer(name="xx科技", phone=""))
 
         db.session.commit()
 

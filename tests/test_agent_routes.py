@@ -46,7 +46,7 @@ def app(tmp_path: Path):
 def master_data(app):
     with app.app_context():
         supplier = Supplier(name="南京键盘供应商", phone="")
-        customer = Customer(name="大圣科技", phone="")
+        customer = Customer(name="xx科技", phone="")
         keyboard = Product(
             name="机械键盘",
             sku="KB001",
@@ -90,7 +90,7 @@ def sales_call():
     return ToolCall(
         name="prepare_sales_order",
         arguments={
-            "customer_name": "大圣科技",
+            "customer_name": "xx科技",
             "items": [
                 {
                     "product_name": "机械键盘",
@@ -101,6 +101,34 @@ def sales_call():
             ],
         },
     )
+
+
+def unpaid_receivables_call(customer_name=None):
+    return ToolCall(
+        name="get_unpaid_receivables",
+        arguments={"customer_name": customer_name},
+    )
+
+
+def seed_unpaid_receivable(app, customer_id, order_no="SO-UNPAID-ROUTE"):
+    with app.app_context():
+        order = SalesOrder(
+            order_no=order_no,
+            customer_id=customer_id,
+            status="completed",
+            total_amount=240,
+        )
+        db.session.add(order)
+        db.session.flush()
+        receivable = AccountReceivable(
+            sales_order_id=order.id,
+            customer_id=customer_id,
+            amount=240,
+            status="unpaid",
+        )
+        db.session.add(receivable)
+        db.session.commit()
+        return receivable.id
 
 
 @pytest.fixture()
@@ -157,6 +185,51 @@ def test_assistant_message_returns_verified_inventory_result(app, master_data):
     assert response.status_code == 200
     assert response.json["type"] == "message"
     assert "80" in response.json["content"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "现在还有哪些客户没付款",
+        "现在还有哪些客户没有付款",
+        "帮我查一下哪些客户没付款",
+    ],
+)
+def test_assistant_routes_unpaid_customer_question_to_read_tool(
+    app, master_data, message
+):
+    receivable_id = seed_unpaid_receivable(app, master_data["customer_id"])
+    llm = set_llm(app, unpaid_receivables_call())
+
+    response = app.test_client().post(
+        "/assistant/message", json={"message": message}
+    )
+
+    assert response.status_code == 200
+    assert response.json["type"] == "message"
+    assert response.json["data"]["items"][0]["receivable_id"] == receivable_id
+    assert response.json["data"]["items"][0]["customer"] == "xx科技"
+    assert response.json["data"]["items"][0]["sales_order_no"] == "SO-UNPAID-ROUTE"
+    assert response.json["data"]["items"][0]["amount"] == "240.00"
+    assert "xx科技" in response.json["content"]
+    assert len(llm.calls) == 1
+    with app.app_context():
+        assert AccountReceivable.query.one().status == "unpaid"
+
+
+def test_assistant_routes_named_customer_debt_question_to_read_tool(app, master_data):
+    seed_unpaid_receivable(app, master_data["customer_id"])
+    llm = set_llm(app, unpaid_receivables_call(customer_name="xx科技"))
+
+    response = app.test_client().post(
+        "/assistant/message", json={"message": "xx科技还欠多少钱"}
+    )
+
+    assert response.status_code == 200
+    assert response.json["type"] == "message"
+    assert response.json["data"]["total_amount"] == "240.00"
+    assert response.json["data"]["items"][0]["customer"] == "xx科技"
+    assert len(llm.calls) == 1
 
 
 def test_purchase_message_returns_preview_without_creating_order(app, master_data):
@@ -236,7 +309,7 @@ def test_sales_confirmation_allows_insufficient_stock_and_creates_no_side_effect
     set_llm(app, sales_call())
     client = app.test_client()
     preview_response = client.post(
-        "/assistant/message", json={"message": "给大圣科技销售 100 个机械键盘"}
+        "/assistant/message", json={"message": "给xx科技销售 100 个机械键盘"}
     )
 
     confirm_response = client.post(
@@ -490,13 +563,26 @@ def test_assistant_rejects_unapproved_write_tools_without_mutation(
         assert AccountPayable.query.count() == 0
 
 
-@pytest.mark.parametrize("message", ["把 PO20260921001 入库", "把 SO20260921001 发货", "确认收款", "确认付款"])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "把 PO20260921001 入库",
+        "把 SO20260921001 发货",
+        "确认收款",
+        "确认付款",
+        "执行付款",
+        "支付给xx科技",
+        "把应收账款收一下",
+        "帮我把xx科技的应收收一下",
+    ],
+)
 def test_assistant_refuses_high_risk_operations_without_mutation(app, message):
     response = app.test_client().post("/assistant/message", json={"message": message})
 
     assert response.status_code == 200
     assert response.json["type"] == "error"
     assert "暂不支持" in response.json["message"]
+    assert app.config["AGENT_LLM_CLIENT"].calls == []
     with app.app_context():
         assert PurchaseOrder.query.count() == 0
         assert SalesOrder.query.count() == 0

@@ -127,11 +127,11 @@ def test_can_create_supplier(app):
 
 def test_can_create_customer(app):
     response = app.test_client().post(
-        "/customers/new", data={"name": "大圣科技", "phone": "025-87654321"}
+        "/customers/new", data={"name": "xx科技", "phone": "025-87654321"}
     )
 
     assert response.status_code == 302
 
     with app.app_context():
         customer = Customer.query.one()
-        assert customer.name == "大圣科技"
+        assert customer.name == "xx科技"

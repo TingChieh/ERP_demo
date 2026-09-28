@@ -216,6 +216,8 @@ def test_assistant_is_a_surface_page_with_examples(app):
     assert 'data-page-type="assistant"' in body
     assert 'class="assistant-page surface-page' in body
     assert 'class="assistant-example chip' in body
+    assert "未收应收账款" in body
+    assert "收款请进入应收账款页面办理" in body
 
 
 def test_narrow_tables_keep_columns_readable_with_horizontal_scrolling():

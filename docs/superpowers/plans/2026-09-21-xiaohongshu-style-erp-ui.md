@@ -490,7 +490,7 @@ Use a page header with the current description, keep four example button texts, 
   <div id="assistant-examples" class="assistant-examples">
     <button class="assistant-example chip" type="button">查一下机械键盘库存</button>
     <button class="assistant-example chip" type="button">向南京键盘供应商采购 100 个机械键盘，80 一个</button>
-    <button class="assistant-example chip" type="button">大圣科技买 20 个机械键盘，120 一个</button>
+    <button class="assistant-example chip" type="button">xx科技买 20 个机械键盘，120 一个</button>
     <button class="assistant-example chip" type="button">现在还有哪些客户没付款</button>
   </div>
   <form id="assistant-form" class="assistant-composer surface-card">

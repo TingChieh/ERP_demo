@@ -64,7 +64,7 @@ def test_demo_data_initialization_is_idempotent(app):
     with app.app_context():
         assert Product.query.count() == 2
         assert Supplier.query.filter_by(name="南京键盘供应商").count() == 1
-        assert Customer.query.filter_by(name="大圣科技").count() == 1
+        assert Customer.query.filter_by(name="xx科技").count() == 1
         assert Product.query.filter_by(sku="KB001").one().stock == 0
 
 
