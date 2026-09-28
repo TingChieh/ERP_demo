@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time, timedelta, timezone
 from html import escape
 from io import BytesIO
 from typing import Callable
+from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -42,10 +43,19 @@ STATUS_LABELS = {
     "paid": "已结清",
 }
 MOVEMENT_LABELS = {"inbound": "入库", "outbound": "出库"}
+MAX_EXPORT_ROWS = 10_000
+EXPORT_TIME_ZONE = ZoneInfo("Asia/Shanghai")
 
 
 class ExportRequestError(ValueError):
     """Raised when the export dataset or file format is not supported."""
+
+
+@dataclass(frozen=True)
+class ExportFilters:
+    start_at: datetime | None = None
+    end_before: datetime | None = None
+    limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -59,7 +69,8 @@ class ExportDataset:
     dataset_id: str
     title: str
     columns: tuple[ExportColumn, ...]
-    query_rows: Callable[[], list[tuple[object, ...]]]
+    query_rows: Callable[[ExportFilters], list[tuple[object, ...]]]
+    supports_date_filter: bool = False
 
 
 @dataclass(frozen=True)
@@ -67,6 +78,65 @@ class ExportFile:
     content: bytes
     filename: str
     mime_type: str
+
+
+def _parse_export_date(label, value):
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise ExportRequestError(f"{label}格式应为 YYYY-MM-DD。")
+    raw = value.strip()
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError:
+        raise ExportRequestError(f"{label}格式应为 YYYY-MM-DD。") from None
+    if parsed.isoformat() != raw:
+        raise ExportRequestError(f"{label}格式应为 YYYY-MM-DD。")
+    return parsed
+
+
+def _local_midnight_to_utc_naive(day):
+    return datetime.combine(day, time.min, tzinfo=EXPORT_TIME_ZONE).astimezone(
+        timezone.utc
+    ).replace(tzinfo=None)
+
+
+def parse_export_filters(start_date, end_date, limit):
+    start_day = _parse_export_date("开始日期", start_date)
+    end_day = _parse_export_date("结束日期", end_date)
+    if start_day is not None and end_day is not None and start_day > end_day:
+        raise ExportRequestError("开始日期不能晚于结束日期。")
+
+    if limit is None or (isinstance(limit, str) and not limit.strip()):
+        parsed_limit = None
+    elif isinstance(limit, bool):
+        raise ExportRequestError("条数必须是 1 至 10,000 的整数。")
+    elif isinstance(limit, int):
+        parsed_limit = limit
+    elif isinstance(limit, str):
+        raw_limit = limit.strip()
+        if not raw_limit.isascii() or not raw_limit.isdigit():
+            raise ExportRequestError("条数必须是 1 至 10,000 的整数。")
+        parsed_limit = int(raw_limit)
+    else:
+        raise ExportRequestError("条数必须是 1 至 10,000 的整数。")
+
+    if parsed_limit is not None and not 1 <= parsed_limit <= MAX_EXPORT_ROWS:
+        raise ExportRequestError("条数必须是 1 至 10,000 的整数。")
+
+    return ExportFilters(
+        start_at=(
+            _local_midnight_to_utc_naive(start_day)
+            if start_day is not None
+            else None
+        ),
+        end_before=(
+            _local_midnight_to_utc_naive(end_day + timedelta(days=1))
+            if end_day is not None
+            else None
+        ),
+        limit=parsed_limit,
+    )
 
 
 def _timestamp(value):
@@ -87,40 +157,61 @@ def _sales_item_summary(order):
     )
 
 
-def _product_rows():
+def _apply_limit(query, filters):
+    return query.limit(filters.limit) if filters.limit is not None else query
+
+
+def _created_at_query(query, model, filters):
+    if filters.start_at is not None:
+        query = query.filter(model.created_at >= filters.start_at)
+    if filters.end_before is not None:
+        query = query.filter(model.created_at < filters.end_before)
+    return query.order_by(model.created_at.desc(), model.id.desc())
+
+
+def _product_rows(filters):
     return [
         (product.name, product.sku, product.purchase_price, product.sale_price, product.stock)
-        for product in Product.query.order_by(Product.id.desc()).all()
+        for product in _apply_limit(
+            Product.query.order_by(Product.id.desc()), filters
+        ).all()
     ]
 
 
-def _customer_rows():
+def _customer_rows(filters):
     return [
         (customer.name, customer.phone)
-        for customer in Customer.query.order_by(Customer.id.desc()).all()
+        for customer in _apply_limit(
+            Customer.query.order_by(Customer.id.desc()), filters
+        ).all()
     ]
 
 
-def _supplier_rows():
+def _supplier_rows(filters):
     return [
         (supplier.name, supplier.phone)
-        for supplier in Supplier.query.order_by(Supplier.id.desc()).all()
+        for supplier in _apply_limit(
+            Supplier.query.order_by(Supplier.id.desc()), filters
+        ).all()
     ]
 
 
-def _inventory_rows():
+def _inventory_rows(filters):
     return [
         (product.name, product.sku, product.stock)
-        for product in Product.query.order_by(Product.name, Product.id).all()
+        for product in _apply_limit(
+            Product.query.order_by(Product.name, Product.id), filters
+        ).all()
     ]
 
 
-def _inventory_transaction_rows():
-    transactions = (
-        InventoryTransaction.query.options(joinedload(InventoryTransaction.product))
-        .order_by(InventoryTransaction.id.desc())
-        .all()
+def _inventory_transaction_rows(filters):
+    query = InventoryTransaction.query.options(
+        joinedload(InventoryTransaction.product)
     )
+    transactions = _apply_limit(
+        _created_at_query(query, InventoryTransaction, filters), filters
+    ).all()
     return [
         (
             transaction.product.name,
@@ -135,15 +226,14 @@ def _inventory_transaction_rows():
     ]
 
 
-def _purchase_order_rows():
-    orders = (
-        PurchaseOrder.query.options(
-            joinedload(PurchaseOrder.supplier),
-            selectinload(PurchaseOrder.items).joinedload(PurchaseOrderItem.product),
-        )
-        .order_by(PurchaseOrder.id.desc())
-        .all()
+def _purchase_order_rows(filters):
+    query = PurchaseOrder.query.options(
+        joinedload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.items).joinedload(PurchaseOrderItem.product),
     )
+    orders = _apply_limit(
+        _created_at_query(query, PurchaseOrder, filters), filters
+    ).all()
     return [
         (
             order.order_no,
@@ -157,15 +247,14 @@ def _purchase_order_rows():
     ]
 
 
-def _sales_order_rows():
-    orders = (
-        SalesOrder.query.options(
-            joinedload(SalesOrder.customer),
-            selectinload(SalesOrder.items).joinedload(SalesOrderItem.product),
-        )
-        .order_by(SalesOrder.id.desc())
-        .all()
+def _sales_order_rows(filters):
+    query = SalesOrder.query.options(
+        joinedload(SalesOrder.customer),
+        selectinload(SalesOrder.items).joinedload(SalesOrderItem.product),
     )
+    orders = _apply_limit(
+        _created_at_query(query, SalesOrder, filters), filters
+    ).all()
     return [
         (
             order.order_no,
@@ -179,15 +268,14 @@ def _sales_order_rows():
     ]
 
 
-def _receivable_rows():
-    records = (
-        AccountReceivable.query.options(
-            joinedload(AccountReceivable.customer),
-            joinedload(AccountReceivable.sales_order),
-        )
-        .order_by(AccountReceivable.id.desc())
-        .all()
+def _receivable_rows(filters):
+    query = AccountReceivable.query.options(
+        joinedload(AccountReceivable.customer),
+        joinedload(AccountReceivable.sales_order),
     )
+    records = _apply_limit(
+        _created_at_query(query, AccountReceivable, filters), filters
+    ).all()
     return [
         (
             record.customer.name,
@@ -201,15 +289,14 @@ def _receivable_rows():
     ]
 
 
-def _payable_rows():
-    records = (
-        AccountPayable.query.options(
-            joinedload(AccountPayable.supplier),
-            joinedload(AccountPayable.purchase_order),
-        )
-        .order_by(AccountPayable.id.desc())
-        .all()
+def _payable_rows(filters):
+    query = AccountPayable.query.options(
+        joinedload(AccountPayable.supplier),
+        joinedload(AccountPayable.purchase_order),
     )
+    records = _apply_limit(
+        _created_at_query(query, AccountPayable, filters), filters
+    ).all()
     return [
         (
             record.supplier.name,
@@ -271,6 +358,7 @@ DATASETS = {
             ExportColumn("发生时间"),
         ),
         _inventory_transaction_rows,
+        True,
     ),
     "purchase_orders": ExportDataset(
         "purchase_orders",
@@ -284,6 +372,7 @@ DATASETS = {
             ExportColumn("商品明细"),
         ),
         _purchase_order_rows,
+        True,
     ),
     "sales_orders": ExportDataset(
         "sales_orders",
@@ -297,6 +386,7 @@ DATASETS = {
             ExportColumn("商品明细"),
         ),
         _sales_order_rows,
+        True,
     ),
     "receivables": ExportDataset(
         "receivables",
@@ -310,6 +400,7 @@ DATASETS = {
             ExportColumn("收款时间"),
         ),
         _receivable_rows,
+        True,
     ),
     "payables": ExportDataset(
         "payables",
@@ -323,6 +414,7 @@ DATASETS = {
             ExportColumn("付款时间"),
         ),
         _payable_rows,
+        True,
     ),
 }
 
@@ -331,11 +423,11 @@ def list_export_datasets():
     return tuple(DATASETS)
 
 
-def get_export_rows(dataset):
+def get_export_rows(dataset, filters=None):
     specification = DATASETS.get(dataset)
     if specification is None:
         raise ExportRequestError("不支持导出该数据集。")
-    return specification, specification.query_rows()
+    return specification, specification.query_rows(filters or ExportFilters())
 
 
 def _literal_text_cell(worksheet, row, column, value):
